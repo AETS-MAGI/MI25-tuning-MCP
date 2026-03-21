@@ -53,4 +53,10 @@ else:
     print(f"[smoke] WARN: audit log not found at {audit_path}")
 PY
 
+echo "[smoke] unit direct test"
+PYTHONPATH="$ROOT_DIR/src" python3 "$ROOT_DIR/tests/unit_direct_test.py"
+
+echo "[smoke] protocol tools test"
+PYTHONPATH="$ROOT_DIR/src" python3 "$ROOT_DIR/tests/protocol_tools_test.py"
+
 echo "[smoke] done"
