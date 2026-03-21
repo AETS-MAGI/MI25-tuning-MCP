@@ -1,6 +1,6 @@
 # MI25-tuning-MCP TODO
 
-最終更新: 2026-03-22（Claude補完）
+最終更新: 2026-03-22（Codex実装反映）
 参照合意書: `ROCm-project/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
 
 ## 0. 正本参照資産（必須）
@@ -20,9 +20,9 @@
 - [x] `update_config` 実行前に `.bak` を作成する
 - [x] `cargo` は絶対PATH優先で実行する（`~/.cargo/bin/cargo` 優先）
 - [x] `run_inference` は `--config` 未対応前提で一時 `config.json` 差し替えを採用する
-- [ ] ツール返却を `content / structuredContent / isError` へ統一する
-- [ ] `set_config` の扱いを明確化する（管理者向け raw API として分離するか、廃止するか決定）
-- [ ] `set_config` を Phase 1 スコープから除外する（agreement §4.4: 全体上書き API は Phase 1 では採用しない。現状 server.py に実装済みのため、削除または Phase 2 以降へ明示移動が必要）
+- [x] ツール返却を `content / structuredContent / isError` へ統一する
+- [x] `set_config` の扱いを明確化する（`set_config_raw` として管理者向けに分離）
+- [x] `set_config` を Phase 1 スコープから除外する（`set_config_raw` は既定で無効）
 
 ## 2. Phase 0（骨組み）
 
@@ -30,15 +30,15 @@
 - [x] `pyproject.toml` を配置
 - [x] `README.md` を作成
 - [x] `mcp-config.json` を作成（ブリッジ接続例）
-- [ ] `docs/tool-spec.md` を作成
-- [ ] `tests/smoke.sh` を作成
+- [x] `docs/tool-spec.md` を作成
+- [x] `tests/smoke.sh` を作成
 
 ## 3. Phase 1（最小運用MVP）
 
 必須ツール:
 
 - [x] `ping`
-- [ ] `get_gpu_metrics`
+- [x] `get_gpu_metrics`
 - [x] `get_config`
 - [x] `update_config`
 - [x] `run_inference`
@@ -58,14 +58,14 @@
 
 ## 4. Phase 2（運用強化）
 
-- [ ] `read_inference_logs`（tail/filter）を実装
-- [ ] `run_client_check`（`~/.cargo/bin/cargo check` 固定）を実装
-- [ ] MCP tool call 監査ログ（JSONL）を実装
-- [ ] `list_dir` を実装（agreement §3 Phase 2 明記）
-- [ ] `read_text` を実装（agreement §3 Phase 2 明記）
-- [ ] `list_presets` を正式化（docs/tool-spec.md への仕様記載）
-- [ ] `write_file` の運用制限を明文化（`Agents-note/` 限定）
-- [ ] エラーコード体系を統一（入力不正/実行失敗/タイムアウト）
+- [x] `read_inference_logs`（tail/filter）を実装
+- [x] `run_client_check`（`~/.cargo/bin/cargo check` 固定）を実装
+- [x] MCP tool call 監査ログ（JSONL）を実装
+- [x] `list_dir` を実装（agreement §3 Phase 2 明記）
+- [x] `read_text` を実装（agreement §3 Phase 2 明記）
+- [x] `list_presets` を正式化（docs/tool-spec.md への仕様記載）
+- [x] `write_file` の運用制限を明文化（`Agents-note/` 限定）
+- [x] エラーコード体系を統一（入力不正/実行失敗/タイムアウト）
 
 ## 5. Phase 3（連携強化）
 
@@ -94,8 +94,8 @@
 
 ## 8. 直近3タスク（優先）
 
-- [ ] `get_gpu_metrics` 実装（rocm-smi のJSON出力を機械可読で返す）
+- [x] `get_gpu_metrics` 実装（rocm-smi のJSON出力を機械可読で返す）
 - [x] `README.md` / `mcp-config.json` 作成済み
-- [ ] `docs/tool-spec.md` を作成
-- [ ] 返却フォーマットを `content / structuredContent / isError` に統一
-- [ ] `set_config` を Phase 1 スコープから除外（server.py の修正）
+- [x] `docs/tool-spec.md` を作成
+- [x] 返却フォーマットを `content / structuredContent / isError` に統一
+- [x] `set_config` を Phase 1 スコープから除外（server.py の修正）

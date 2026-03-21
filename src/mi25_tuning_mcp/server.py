@@ -639,13 +639,12 @@ def run_inference(
 # ---------------------------------------------------------------------------
 
 
-@audited_tool()
-def read_perf_log(
+def _read_perf_log_impl(
     n: int = 10,
     preset_filter: str | None = None,
     max_output_chars: int = 6000,
 ) -> dict[str, Any]:
-    """Read recent JSONL performance entries."""
+    """Internal implementation shared by read_perf_log/read_inference_logs."""
     if n <= 0:
         return _err("n must be > 0", code="invalid_argument")
 
@@ -676,13 +675,23 @@ def read_perf_log(
 
 
 @audited_tool()
+def read_perf_log(
+    n: int = 10,
+    preset_filter: str | None = None,
+    max_output_chars: int = 6000,
+) -> dict[str, Any]:
+    """Read recent JSONL performance entries."""
+    return _read_perf_log_impl(n=n, preset_filter=preset_filter, max_output_chars=max_output_chars)
+
+
+@audited_tool()
 def read_inference_logs(
     n: int = 20,
     preset_filter: str | None = None,
     max_output_chars: int = 6000,
 ) -> dict[str, Any]:
     """Phase2 alias for history-tail usage with same semantics as read_perf_log."""
-    return read_perf_log(n=n, preset_filter=preset_filter, max_output_chars=max_output_chars)
+    return _read_perf_log_impl(n=n, preset_filter=preset_filter, max_output_chars=max_output_chars)
 
 
 @audited_tool()
