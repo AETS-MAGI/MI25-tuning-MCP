@@ -1,0 +1,2 @@
+[console_scripts]
+mi25-tuning-mcp = mi25_tuning_mcp.server:main
