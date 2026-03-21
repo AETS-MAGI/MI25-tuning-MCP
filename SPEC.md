@@ -2,7 +2,6 @@
 
 バージョン: 1.0.0
 作成日: 2026-03-22
-参照合意書: `/home/limonene/ROCm-project/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
 
 ---
 

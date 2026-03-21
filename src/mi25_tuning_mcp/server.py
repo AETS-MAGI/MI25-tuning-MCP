@@ -261,6 +261,118 @@ def _truncate_text(text: str, max_chars: int) -> str:
     return text[:max_chars] + f"\n...[truncated at {max_chars} chars]"
 
 
+def _audit_compact(value: Any, depth: int = 0) -> Any:
+    if depth > 2:
+        return "<max_depth>"
+
+    if isinstance(value, str):
+        return _truncate_text(value, 300)
+
+    if value is None or isinstance(value, bool | int | float):
+        return value
+
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for idx, (k, v) in enumerate(value.items()):
+            if idx >= 20:
+                out["__truncated__"] = f"{len(value) - 20} more keys"
+                break
+            out[str(k)] = _audit_compact(v, depth + 1)
+        return out
+
+    if isinstance(value, list | tuple):
+        compacted = [_audit_compact(v, depth + 1) for v in list(value)[:20]]
+        if len(value) > 20:
+            compacted.append(f"...({len(value) - 20} more items)")
+        return compacted
+
+    return str(value)
+
+
+def _bind_audit_args(func: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    try:
+        bound = inspect.signature(func).bind_partial(*args, **kwargs)
+        bound.apply_defaults()
+        return {k: _audit_compact(v) for k, v in bound.arguments.items()}
+    except Exception:
+        return {
+            "args": _audit_compact(list(args)),
+            "kwargs": _audit_compact(kwargs),
+        }
+
+
+def _record_tool_call(tool_name: str, args_payload: dict[str, Any], result: Any, elapsed_ms: int) -> None:
+    event: dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "tool": tool_name,
+        "elapsed_ms": elapsed_ms,
+        "args": args_payload,
+    }
+
+    if isinstance(result, dict):
+        event["isError"] = bool(result.get("isError", False))
+
+        structured = result.get("structuredContent")
+        if isinstance(structured, dict):
+            if "status" in structured:
+                event["status"] = structured.get("status")
+            err = structured.get("error")
+            if isinstance(err, dict):
+                event["error"] = {
+                    "code": err.get("code"),
+                    "message": _truncate_text(str(err.get("message", "")), 300),
+                }
+
+        content = result.get("content")
+        if isinstance(content, list) and content and isinstance(content[0], dict):
+            text = content[0].get("text")
+            if isinstance(text, str):
+                event["content_preview"] = _truncate_text(text, 240)
+    else:
+        event["isError"] = False
+        event["result_preview"] = _truncate_text(str(result), 240)
+
+    try:
+        AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with AUDIT_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+    except Exception:
+        # Audit logging must not break primary tool execution.
+        pass
+
+
+def audited_tool():
+    def _decorator(func):
+        @wraps(func)
+        def _wrapped(*args, **kwargs):
+            started = time.monotonic()
+            args_payload = _bind_audit_args(func, *args, **kwargs)
+            try:
+                result = func(*args, **kwargs)
+            except Exception as e:
+                elapsed_ms = int((time.monotonic() - started) * 1000)
+                _record_tool_call(
+                    func.__name__,
+                    args_payload,
+                    {
+                        "isError": True,
+                        "structuredContent": {
+                            "error": {"code": "uncaught_exception", "message": str(e)},
+                        },
+                    },
+                    elapsed_ms,
+                )
+                raise
+
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            _record_tool_call(func.__name__, args_payload, result, elapsed_ms)
+            return result
+
+        return mcp.tool()(_wrapped)
+
+    return _decorator
+
+
 def _read_text_impl(path: str, max_chars: int = 6000) -> dict[str, Any]:
     resolved = _safe_path(PROJECT_ROOT, path)
     if resolved is None:
@@ -309,7 +421,7 @@ def _read_text_impl(path: str, max_chars: int = 6000) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@audited_tool()
 def ping() -> dict[str, Any]:
     """Health check with resolved paths and cargo path."""
     ts = datetime.now(timezone.utc).isoformat()
@@ -318,14 +430,16 @@ def ping() -> dict[str, Any]:
         {
             "ts": ts,
             "project_root": str(PROJECT_ROOT),
+            "mcp_root": str(MCP_ROOT),
             "client_root": str(CLIENT_ROOT),
             "notes_root": str(NOTES_ROOT),
             "cargo": _cargo_bin(),
+            "audit_log_path": str(AUDIT_LOG_PATH),
         },
     )
 
 
-@mcp.tool()
+@audited_tool()
 def get_gpu_metrics(timeout_secs: int = 15) -> dict[str, Any]:
     """Return MI25/gfx900 GPU metrics via rocm-smi (machine-readable best effort).
 
@@ -392,7 +506,7 @@ def get_gpu_metrics(timeout_secs: int = 15) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@audited_tool()
 def list_presets() -> dict[str, Any]:
     """List all available gfx900 presets and parameter defaults."""
     return _ok(
@@ -409,7 +523,7 @@ def list_presets() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@audited_tool()
 def run_inference(
     prompt: str,
     preset: str = "gfx900_safe",
@@ -525,7 +639,7 @@ def run_inference(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@audited_tool()
 def read_perf_log(
     n: int = 10,
     preset_filter: str | None = None,
@@ -561,7 +675,7 @@ def read_perf_log(
     )
 
 
-@mcp.tool()
+@audited_tool()
 def read_inference_logs(
     n: int = 20,
     preset_filter: str | None = None,
@@ -571,7 +685,7 @@ def read_inference_logs(
     return read_perf_log(n=n, preset_filter=preset_filter, max_output_chars=max_output_chars)
 
 
-@mcp.tool()
+@audited_tool()
 def summarize_perf_log(
     n: int = 20,
     preset_filter: str | None = None,
@@ -640,7 +754,7 @@ def summarize_perf_log(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@audited_tool()
 def get_config() -> dict[str, Any]:
     """Read and return current multi_llm-client config.json."""
     path = _config_path()
@@ -655,7 +769,7 @@ def get_config() -> dict[str, Any]:
         return _err(f"failed to read config.json: {e}", code="read_failed", structured={"path": str(path)})
 
 
-@mcp.tool()
+@audited_tool()
 def update_config(overrides: dict[str, Any]) -> dict[str, Any]:
     """Merge allowlisted keys into config.json (partial update + .bak)."""
     if not isinstance(overrides, dict):
@@ -706,8 +820,8 @@ def update_config(overrides: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-@mcp.tool()
-def set_config(config_json: str) -> dict[str, Any]:
+@audited_tool()
+def set_config_raw(config_json: str) -> dict[str, Any]:
     """Raw full overwrite API (disabled by default by policy).
 
     Agreement Phase1 excludes full overwrite API for agent usage.
@@ -716,7 +830,7 @@ def set_config(config_json: str) -> dict[str, Any]:
     """
     if os.getenv("MI25_ENABLE_SET_CONFIG_RAW", "0") != "1":
         return _err(
-            "set_config is disabled by policy. Use update_config(overrides) instead.",
+            "set_config_raw is disabled by policy. Use update_config(overrides) instead.",
             code="disabled_by_policy",
         )
 
@@ -750,7 +864,7 @@ def set_config(config_json: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@audited_tool()
 def list_dir(path: str = ".", max_entries: int = 200) -> dict[str, Any]:
     """List directory entries under project root."""
     if max_entries <= 0:
@@ -781,19 +895,19 @@ def list_dir(path: str = ".", max_entries: int = 200) -> dict[str, Any]:
     )
 
 
-@mcp.tool()
+@audited_tool()
 def read_text(path: str, max_chars: int = 6000) -> dict[str, Any]:
     """Read text file under project root (Phase2 alias for read_file)."""
     return _read_text_impl(path=path, max_chars=max_chars)
 
 
-@mcp.tool()
+@audited_tool()
 def read_file(path: str, max_chars: int = 6000) -> dict[str, Any]:
     """Compatibility wrapper for reading text file under project root."""
     return _read_text_impl(path=path, max_chars=max_chars)
 
 
-@mcp.tool()
+@audited_tool()
 def write_file(path: str, content: str, append: bool = False) -> dict[str, Any]:
     """Write/append file under Agents-note only."""
     resolved = _safe_path(NOTES_ROOT, path)
@@ -823,7 +937,7 @@ def write_file(path: str, content: str, append: bool = False) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@audited_tool()
 def run_client_check(timeout_secs: int = 300, max_output_chars: int = 6000) -> dict[str, Any]:
     """Run cargo check for multi_llm-client with absolute cargo path preference."""
     if timeout_secs <= 0:
