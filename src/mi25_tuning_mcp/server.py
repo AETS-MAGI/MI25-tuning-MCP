@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
+from functools import wraps
+import inspect
 from pathlib import Path
 from typing import Any
 
@@ -28,9 +30,24 @@ def _find_project_root() -> Path:
     return here.parents[4]
 
 
+def _find_mcp_root() -> Path:
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if parent.name == "MI25-tuning-MCP":
+            return parent
+    return here.parents[3]
+
+
 PROJECT_ROOT = _find_project_root()
+MCP_ROOT = _find_mcp_root()
 CLIENT_ROOT = Path(os.getenv("MI25_CLIENT_ROOT", str(PROJECT_ROOT / "multi_llm-client")))
 NOTES_ROOT = Path(os.getenv("MI25_NOTES_ROOT", str(PROJECT_ROOT / "Agents-note")))
+AUDIT_LOG_PATH = Path(
+    os.getenv(
+        "MI25_MCP_AUDIT_LOG",
+        str(MCP_ROOT / "logs" / "tool-calls.jsonl"),
+    )
+)
 
 # Cargo binary: prefer ~/.cargo/bin/cargo over system cargo
 _CARGO_CANDIDATES = [
