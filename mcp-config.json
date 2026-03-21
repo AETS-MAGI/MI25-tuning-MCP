@@ -1,0 +1,21 @@
+{
+  "bridge": {
+    "max_rounds": 6,
+    "system_prompt": "You are a tuning assistant for the MI25/gfx900 Ollama setup. Use MCP tools to observe, configure, and benchmark the multi_llm-client. Prefer tools over guesses for runtime state. When changing config, use update_config with specific keys rather than set_config."
+  },
+  "ollama": {
+    "base_url": "http://127.0.0.1:11434",
+    "model": "gpt-oss:latest"
+  },
+  "mcpServers": {
+    "mi25_tuning": {
+      "command": "/home/limonene/ROCm-project/MI25-tuning-MCP/.venv/bin/mi25-tuning-mcp",
+      "args": [],
+      "cwd": "/home/limonene/ROCm-project/MI25-tuning-MCP",
+      "env": {
+        "MI25_CLIENT_ROOT": "/home/limonene/ROCm-project/multi_llm-client",
+        "MI25_NOTES_ROOT": "/home/limonene/ROCm-project/Agents-note"
+      }
+    }
+  }
+}
