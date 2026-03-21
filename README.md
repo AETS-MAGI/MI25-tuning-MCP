@@ -69,22 +69,26 @@ MI25 / gfx900 向け `multi_llm-client` 運用のための MCP サーバーで�
 `src/mi25_tuning_mcp/server.py` 現在実装済みツール:
 
 - `ping`
+- `get_gpu_metrics`
 - `list_presets`
 - `run_inference`
 - `read_perf_log`
+- `read_inference_logs`
 - `summarize_perf_log`
 - `get_config`
 - `update_config`
-- `set_config`（互換用途。Agent主APIとしては非推奨）
+- `set_config_raw`（管理者向け。既定では無効）
+- `list_dir`
+- `read_text`
 - `read_file`
 - `write_file`
-
-未実装（agreementのMVP/Phase対象）:
-
-- `get_gpu_metrics`
 - `run_client_check`
-- `read_inference_logs`
-- 返却の `content/structuredContent/isError` 完全統一
+
+実装済み仕様:
+
+- 全ツール返却を `content / structuredContent / isError` に統一
+- MCP tool call 監査ログ JSONL（既定: `MI25-tuning-MCP/logs/tool-calls.jsonl`）
+- `set_config_raw` は `MI25_ENABLE_SET_CONFIG_RAW=1` のときのみ有効
 
 ---
 
@@ -112,6 +116,10 @@ mi25-tuning-mcp
   - 既定: `ROCm-project/multi_llm-client`
 - `MI25_NOTES_ROOT`
   - 既定: `ROCm-project/Agents-note`
+- `MI25_MCP_AUDIT_LOG`
+  - 既定: `ROCm-project/MI25-tuning-MCP/logs/tool-calls.jsonl`
+- `MI25_ENABLE_SET_CONFIG_RAW`
+  - 既定: `0`（`set_config_raw` を無効化）
 
 ---
 
@@ -124,10 +132,18 @@ mi25-tuning-mcp
   - `Agents-note/` 配下のみ書き込み
 - `read_file`
   - プロジェクトルート配下のみ
+- `read_text`
+  - プロジェクトルート配下のみ
+- `list_dir`
+  - プロジェクトルート配下のみ
 - `run_inference`
   - timeout 必須
   - 実行後は config を復元
   - 出力長を制限
+- `set_config_raw`
+  - 既定無効（明示的に `MI25_ENABLE_SET_CONFIG_RAW=1` が必要）
+- 監査ログ
+  - 全ツール呼び出しを JSONL に記録
 
 ---
 
@@ -182,3 +198,5 @@ Phase 3:
 - 正本合意: `ROCm-project/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
 - TODO: `ROCm-project/MI25-tuning-MCP/TODO.md`
 - 関連MCP（インフラ層）: `ROCm-project/ROCm-ollama-mcp`
+- 仕様書: `ROCm-project/MI25-tuning-MCP/SPEC.md`
+- ツール仕様: `ROCm-project/MI25-tuning-MCP/docs/tool-spec.md`
