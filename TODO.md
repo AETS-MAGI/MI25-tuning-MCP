@@ -1,15 +1,15 @@
 # MI25-tuning-MCP TODO
 
-最終更新: 2026-03-22（Codex実装反映）
+最終更新: 2026-03-22（Codex残務完了反映）
 参照合意書: `ROCm-project/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
 
 ## 0. 正本参照資産（必須）
 
 以下を設計・実装・チューニング判断の正本参照資産として扱う。
 
-- [ ] rocBLAS / Tensile フォークを参照して実装判断に反映する
+- [x] rocBLAS / Tensile フォークを参照して実装判断に反映する
   - `ROCm-project/ROCm-repos_AETS`
-- [ ] 研究資産の経路知見をツール仕様に反映する
+- [x] 研究資産の経路知見をツール仕様に反映する
   - `ROCm-project/vega-hbmx-experiments`
   - `ROCm-project/vega_investigations`
   - `ROCm-project/vega-hbmx-pages`
@@ -69,28 +69,28 @@
 
 ## 5. Phase 3（連携強化）
 
-- [ ] `multi_llm-client` 側 tool-calling 連携（必要時）
-- [ ] `max_tool_roundtrips` / `allowed_tools` 適用
-- [ ] ブリッジ経由でループ収束性テスト
-- [ ] `ROCm-ollama-mcp` との連携強化（agreement §3 Phase 3 明記）
-- [ ] `compare_presets` / `tail_log(follow)` の要否再評価
+- [x] `multi_llm-client` 側 tool-calling 連携（必要時）
+- [x] `max_tool_roundtrips` / `allowed_tools` 適用
+- [x] ブリッジ経由でループ収束性テスト
+- [x] `ROCm-ollama-mcp` との連携強化（agreement §3 Phase 3 明記）
+- [x] `compare_presets` / `tail_log(follow)` の要否再評価
 
 ## 6. テスト計画（必須順）
 
-- [ ] MCP単体テスト（Python関数直接呼び出し）
-- [ ] MCPプロトコルテスト（tools/list, tools/call）
-- [ ] LLM統合テスト（ブリッジ経由）
-- [ ] 失敗系テスト（timeout, 不正path, allowlist違反, ログ不在）
+- [x] MCP単体テスト（Python関数直接呼び出し）
+- [x] MCPプロトコルテスト（tools/list, tools/call）
+- [x] LLM統合テスト（ブリッジ経由）
+- [x] 失敗系テスト（timeout, 不正path, allowlist違反, ログ不在）
 
 ## 7. DoD チェック
 
-- [ ] stdio MCP として起動できる
-- [ ] Phase 1 必須ツールが動作する
-- [ ] `config.json` 安全更新（`.bak` 付き）が動作する
-- [ ] `run_inference -> read_perf_log -> summarize_perf_log` が再現できる
-- [ ] `get_gpu_metrics` が実機または未導入環境で可観測結果を返す
-- [ ] 失敗時に `isError` と原因を返す
-- [ ] MCP単体テスト + MCPプロトコルテストが通る
+- [x] stdio MCP として起動できる
+- [x] Phase 1 必須ツールが動作する
+- [x] `config.json` 安全更新（`.bak` 付き）が動作する
+- [x] `run_inference -> read_perf_log -> summarize_perf_log` が再現できる
+- [x] `get_gpu_metrics` が実機または未導入環境で可観測結果を返す
+- [x] 失敗時に `isError` と原因を返す
+- [x] MCP単体テスト + MCPプロトコルテストが通る
 
 ## 8. 直近3タスク（優先）
 

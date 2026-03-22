@@ -122,3 +122,15 @@ allowlist keys:
 ```
 
 監査ログ書き込み失敗はツール本体の失敗にはしない（ベストエフォート）。
+
+## 6. Bridge / Phase 3
+
+- 統合設定ファイル: `mcp-config.phase3.json`
+- bridge 用ヘルパー: `tools/bridge_agent_chat.sh`
+- LLM 統合テスト: `tests/llm_bridge_integration_test.py`
+
+`mcp-config.phase3.json` には以下を含む:
+
+- `agent.max_tool_roundtrips`
+- `agent.allowed_tools`
+- `mi25_tuning` + `rocm_ops` + `rocm_ops_b` の同時接続

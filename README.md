@@ -200,3 +200,43 @@ Phase 3:
 - 関連MCP（インフラ層）: `ROCm-project/ROCm-ollama-mcp`
 - 仕様書: `ROCm-project/MI25-tuning-MCP/SPEC.md`
 - ツール仕様: `ROCm-project/MI25-tuning-MCP/docs/tool-spec.md`
+- 正本参照資産反映: `ROCm-project/MI25-tuning-MCP/docs/reference-asset-map.md`
+- Phase 3 状態: `ROCm-project/MI25-tuning-MCP/docs/phase3-status.md`
+
+---
+
+## 11. テスト実行
+
+`.venv` を有効化して、以下を実行します。
+
+```bash
+cd ROCm-project/MI25-tuning-MCP
+source .venv/bin/activate
+./tests/smoke.sh
+```
+
+`smoke.sh` では以下をまとめて実行します。
+
+- compile チェック
+- direct tool shape チェック
+- `tests/unit_direct_test.py`（MCP単体 + 失敗系 + sandbox統合）
+- `tests/protocol_tools_test.py`（stdio MCP protocol: `tools/list`, `tools/call`）
+- `tests/llm_bridge_integration_test.py`（bridge経由 LLM 統合。`MI25_RUN_LLM_INTEGRATION=1` で有効）
+
+---
+
+## 12. Phase 3 連携
+
+Phase 3 用の統合設定:
+
+- `mcp-config.phase3.json`
+  - `mi25_tuning` + `rocm_ops` + `rocm_ops_b` の統合
+  - `agent.max_tool_roundtrips`
+  - `agent.allowed_tools`
+
+実行ヘルパー:
+
+```bash
+cd ROCm-project/MI25-tuning-MCP
+./tools/bridge_agent_chat.sh "Check MI25 runtime and summarize status in one sentence."
+```

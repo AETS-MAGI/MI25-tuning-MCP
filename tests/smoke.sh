@@ -59,4 +59,11 @@ PYTHONPATH="$ROOT_DIR/src" python3 "$ROOT_DIR/tests/unit_direct_test.py"
 echo "[smoke] protocol tools test"
 PYTHONPATH="$ROOT_DIR/src" python3 "$ROOT_DIR/tests/protocol_tools_test.py"
 
+if [[ "${MI25_RUN_LLM_INTEGRATION:-0}" == "1" ]]; then
+  echo "[smoke] llm bridge integration test"
+  PYTHONPATH="$ROOT_DIR/src" python3 "$ROOT_DIR/tests/llm_bridge_integration_test.py"
+else
+  echo "[smoke] skip llm bridge integration test (set MI25_RUN_LLM_INTEGRATION=1 to enable)"
+fi
+
 echo "[smoke] done"

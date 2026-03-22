@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,123 @@ def _run_case(name: str, fn, expected_error_code: str | None = None) -> None:
     print(f"[unit] {name}: ok (error.code={code})")
 
 
+def _integration_sandbox_case() -> None:
+    """Run run_inference/update_config/read/summarize on isolated temporary client root."""
+    original_root = server.CLIENT_ROOT
+    try:
+        with tempfile.TemporaryDirectory(prefix="mi25-mcp-test-") as tmp:
+            root = Path(tmp)
+            target = root / "target" / "release"
+            target.mkdir(parents=True, exist_ok=True)
+            logs_dir = root / "logs"
+            logs_dir.mkdir(parents=True, exist_ok=True)
+
+            # Fake client binary that accepts stdin and exits successfully.
+            fake_bin = target / "multi_llm_client"
+            fake_bin.write_text(
+                "#!/usr/bin/env bash\n"
+                "cat >/dev/null\n"
+                "echo 'fake client ok'\n",
+                encoding="utf-8",
+            )
+            fake_bin.chmod(0o755)
+
+            config_path = root / "config.json"
+            original_cfg = {
+                "model_name": "dummy-model",
+                "log_dir": "logs",
+                "preset": "default",
+                "stream": False,
+                "inline_stream": False,
+            }
+            config_path.write_text(json.dumps(original_cfg, indent=2), encoding="utf-8")
+
+            # Pre-seed one log entry to validate read/summarize chain.
+            seed_entry = {
+                "total_ms": 120.0,
+                "ttft_ms": 30.0,
+                "approx_tok_per_sec": 22.2,
+                "response_chars": 64,
+                "effective": {"preset": "gfx900_safe"},
+            }
+            (logs_dir / "seed.jsonl").write_text(
+                json.dumps(seed_entry, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+
+            server.CLIENT_ROOT = root
+
+            # update_config positive path (+ .bak)
+            res_update = server.update_config({"preset": "gfx900_safe"})
+            _assert_shape("sandbox_update_config", res_update)
+            if res_update.get("isError"):
+                _fail("sandbox_update_config should succeed")
+            bak_path = root / "config.json.bak"
+            if not bak_path.exists():
+                _fail("sandbox_update_config should create .bak")
+
+            # run_inference positive path with temp config swap + restore
+            res_infer = server.run_inference(
+                prompt="hello from unit test",
+                preset="gfx900_safe",
+                timeout_secs=5,
+                max_output_chars=300,
+            )
+            _assert_shape("sandbox_run_inference", res_infer)
+            if res_infer.get("isError"):
+                _fail(f"sandbox_run_inference failed: {res_infer}")
+
+            restored_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+            if restored_cfg.get("preset") != "gfx900_safe":
+                # update_config changed this earlier; run_inference must restore to that state.
+                _fail("config restore check failed after run_inference")
+            if (root / "config.json.run_bak").exists():
+                _fail("config.json.run_bak should be removed after successful restore")
+
+            # read/summarize chain
+            res_read = server.read_perf_log(n=1, preset_filter="gfx900_safe")
+            _assert_shape("sandbox_read_perf_log", res_read)
+            if res_read.get("isError"):
+                _fail("sandbox_read_perf_log should not fail")
+
+            res_sum = server.summarize_perf_log(n=1, preset_filter="gfx900_safe")
+            _assert_shape("sandbox_summarize_perf_log", res_sum)
+            if res_sum.get("isError"):
+                _fail("sandbox_summarize_perf_log should not fail")
+
+            # timeout failure path
+            fake_bin.write_text(
+                "#!/usr/bin/env bash\n"
+                "sleep 2\n"
+                "cat >/dev/null\n"
+                "echo 'late output'\n",
+                encoding="utf-8",
+            )
+            fake_bin.chmod(0o755)
+            res_timeout = server.run_inference(
+                prompt="timeout test",
+                preset="gfx900_safe",
+                timeout_secs=1,
+            )
+            _assert_shape("sandbox_run_inference_timeout", res_timeout)
+            if not res_timeout.get("isError"):
+                _fail("sandbox_run_inference_timeout should fail with timeout")
+            if _error_code(res_timeout) != "timeout":
+                _fail(f"expected timeout error code, got {_error_code(res_timeout)}")
+
+            # empty-log behavior (no failure)
+            for f in logs_dir.glob("*.jsonl"):
+                f.unlink()
+            res_empty = server.read_perf_log(n=5)
+            _assert_shape("sandbox_read_perf_log_empty", res_empty)
+            if res_empty.get("isError"):
+                _fail("read_perf_log on empty logs should be non-error empty state")
+
+            print("[unit] sandbox integration: ok")
+    finally:
+        server.CLIENT_ROOT = original_root
+
+
 def main() -> int:
     try:
         _run_case("ping", lambda: server.ping())
@@ -88,6 +206,7 @@ def main() -> int:
             lambda: server.set_config_raw("{}"),
             expected_error_code="disabled_by_policy",
         )
+        _integration_sandbox_case()
 
         audit = Path(server.AUDIT_LOG_PATH)
         if not audit.exists():
