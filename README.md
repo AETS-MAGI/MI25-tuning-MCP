@@ -3,10 +3,15 @@
 MI25 / gfx900 向け `multi_llm-client` 運用のための MCP サーバーです。
 本リポジトリの設計・運用判断は、以下の合意文書を正本とします。
 
-- 正本: `ROCm-project/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
+- 正本: `<ROCM_PROJECT_ROOT>/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
 
 本 README は、正本の内容を実装観点に落とした実装者向けガイドです。
 正本と矛盾する場合は **正本を優先** してください。
+
+本 README のパス表記ルール:
+
+- `<ROCM_PROJECT_ROOT>`: この作業ツリーの絶対パス
+  - 例: `/home/alice/ROCm-project`
 
 ---
 
@@ -32,11 +37,11 @@ MI25 / gfx900 向け `multi_llm-client` 運用のための MCP サーバーで�
 設計・チューニング判断では、以下を正本参照資産として扱います。
 
 - rocBLAS / Tensile フォーク（実装系の正本）
-  - `ROCm-project/ROCm-repos_AETS`
+  - `<ROCM_PROJECT_ROOT>/ROCm-repos_AETS`
 - 研究資産（経路検証・再現手順・観測知見）
-  - `ROCm-project/vega-hbmx-experiments`
-  - `ROCm-project/vega_investigations`
-  - `ROCm-project/vega-hbmx-pages`
+  - `<ROCM_PROJECT_ROOT>/vega-hbmx-experiments`
+  - `<ROCM_PROJECT_ROOT>/vega_investigations`
+  - `<ROCM_PROJECT_ROOT>/vega-hbmx-pages`
 
 ---
 
@@ -95,7 +100,7 @@ MI25 / gfx900 向け `multi_llm-client` 運用のための MCP サーバーで�
 ## 5. セットアップ
 
 ```bash
-cd ROCm-project/MI25-tuning-MCP
+cd <ROCM_PROJECT_ROOT>/MI25-tuning-MCP
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
@@ -113,11 +118,11 @@ mi25-tuning-mcp
 ## 6. 環境変数
 
 - `MI25_CLIENT_ROOT`
-  - 既定: `ROCm-project/multi_llm-client`
+  - 既定: `<ROCM_PROJECT_ROOT>/multi_llm-client`
 - `MI25_NOTES_ROOT`
-  - 既定: `ROCm-project/Agents-note`
+  - 既定: `<ROCM_PROJECT_ROOT>/Agents-note`
 - `MI25_MCP_AUDIT_LOG`
-  - 既定: `ROCm-project/MI25-tuning-MCP/logs/tool-calls.jsonl`
+  - 既定: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/logs/tool-calls.jsonl`
 - `MI25_ENABLE_SET_CONFIG_RAW`
   - 既定: `0`（`set_config_raw` を無効化）
 
@@ -195,13 +200,13 @@ Phase 3:
 
 ## 10. 参照
 
-- 正本合意: `ROCm-project/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
-- TODO: `ROCm-project/MI25-tuning-MCP/TODO.md`
-- 関連MCP（インフラ層）: `ROCm-project/ROCm-ollama-mcp`
-- 仕様書: `ROCm-project/MI25-tuning-MCP/SPEC.md`
-- ツール仕様: `ROCm-project/MI25-tuning-MCP/docs/tool-spec.md`
-- 正本参照資産反映: `ROCm-project/MI25-tuning-MCP/docs/reference-asset-map.md`
-- Phase 3 状態: `ROCm-project/MI25-tuning-MCP/docs/phase3-status.md`
+- 正本合意: `<ROCM_PROJECT_ROOT>/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
+- TODO: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/TODO.md`
+- 関連MCP（インフラ層）: `<ROCM_PROJECT_ROOT>/ROCm-ollama-mcp`
+- 仕様書: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/SPEC.md`
+- ツール仕様: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/docs/tool-spec.md`
+- 正本参照資産反映: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/docs/reference-asset-map.md`
+- Phase 3 状態: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/docs/phase3-status.md`
 
 ---
 
@@ -214,7 +219,7 @@ Phase 3:
 `.venv` を有効化して、以下を実行します。
 
 ```bash
-cd ROCm-project/MI25-tuning-MCP
+cd <ROCM_PROJECT_ROOT>/MI25-tuning-MCP
 source .venv/bin/activate
 ./tests/smoke.sh
 
@@ -244,6 +249,33 @@ Phase 3 用の統合設定:
 実行ヘルパー:
 
 ```bash
-cd ROCm-project/MI25-tuning-MCP
+cd <ROCM_PROJECT_ROOT>/MI25-tuning-MCP
 ./tools/bridge_agent_chat.sh "Check MI25 runtime and summarize status in one sentence."
 ```
+
+---
+
+## 13. Antigravity MCP 設定例
+
+Antigravity で MCP を使う場合は、以下のファイルに `mcpServers` を定義します。
+
+- `~/.gemini/antigravity/mcp_config.json`
+- テンプレート: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/mcp_config.template.json`
+
+セットアップ手順:
+
+```bash
+export ROCM_PROJECT_ROOT="/path/to/ROCm-project"
+cp "${ROCM_PROJECT_ROOT}/MI25-tuning-MCP/mcp_config.template.json" \
+  "${HOME}/.gemini/antigravity/mcp_config.json"
+sed -i "s#<ROCM_PROJECT_ROOT>#${ROCM_PROJECT_ROOT}#g" \
+  "${HOME}/.gemini/antigravity/mcp_config.json"
+```
+
+補足:
+
+- トップレベルキーは `mcpServers`（複数形）を使う
+- `command` は相対PATHではなく絶対PATHを推奨
+- `<ROCM_PROJECT_ROOT>` を各自の実パスに置換して使う（例: `/home/alice/ROCm-project`）
+- 反映後は Antigravity の Language Server 再起動（または Window Reload）を実施
+- Claude Code 側を併用する場合は、プロジェクトルートの `.mcp.json` も同じ内容で管理すると運用が揃います

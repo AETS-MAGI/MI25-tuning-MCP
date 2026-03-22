@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "mi25_tuning": {
+      "command": "<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/.venv/bin/mi25-tuning-mcp",
+      "args": [],
+      "env": {
+        "MI25_CLIENT_ROOT": "<ROCM_PROJECT_ROOT>/multi_llm-client",
+        "MI25_NOTES_ROOT": "<ROCM_PROJECT_ROOT>/Agents-note",
+        "MI25_MCP_AUDIT_LOG": "<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/logs/tool-calls.jsonl"
+      }
+    },
+    "rocm_ops": {
+      "command": "<ROCM_PROJECT_ROOT>/ROCm-ollama-mcp/mcp-rocm-ops/.venv/bin/rocm-ops-mcp",
+      "args": [],
+      "env": {
+        "ROCM_OPS_MI25_BUILD_ROOT": "<ROCM_PROJECT_ROOT>/ROCm-MI25-build",
+        "ROCM_OPS_MODELS_DIR": "<ROCM_PROJECT_ROOT>/ollama-models",
+        "ROCM_OPS_OLLAMA_BASE_URL": "http://127.0.0.1:11434"
+      }
+    },
+    "rocm_ops_b": {
+      "command": "<ROCM_PROJECT_ROOT>/ROCm-ollama-mcp/mcp-host-info/server.py",
+      "args": [],
+      "env": {}
+    }
+  }
+}
