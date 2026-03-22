@@ -1,106 +1,25 @@
 # MI25-tuning-MCP
 
 MI25 / gfx900 向け `multi_llm-client` 運用のための MCP サーバーです。
-本リポジトリの設計・運用判断は、以下の合意文書を正本とします。
-
-- 正本: `<ROCM_PROJECT_ROOT>/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
-
-本 README は、正本の内容を実装観点に落とした実装者向けガイドです。
-正本と矛盾する場合は **正本を優先** してください。
-
-本 README のパス表記ルール:
-
-- `<ROCM_PROJECT_ROOT>`: この作業ツリーの絶対パス
-  - 例: `/home/alice/ROCm-project`
 
 ---
 
-## 1. 目的と責務
+## 目的と責務
 
-`MI25-tuning-MCP` は **クライアント・実験ワークフロー層** です。
+`MI25-tuning-MCP` は **クライアント・実験ワークフロー層** を担います。
 
-担当すること:
-
-- `multi_llm-client` の設定変更（安全な部分更新）
-- 推論実行
-- ログ読取・要約
-- ノート記録
-
-担当しないこと:
-
-- GPU/ROCm/Ollama のインフラ層全般（原則 `ROCm-ollama-mcp` 側）
+| 担当する | 担当しない |
+|----------|-----------|
+| `multi_llm-client` の設定変更（安全な部分更新） | GPU / ROCm / Ollama のインフラ観測 |
+| 推論実行・ログ読取・要約 | → `ROCm-ollama-mcp` が担当 |
+| ノート記録 | |
 
 ---
 
-## 2. 正本参照資産（必須）
-
-設計・チューニング判断では、以下を正本参照資産として扱います。
-
-- rocBLAS / Tensile フォーク（実装系の正本）
-  - `<ROCM_PROJECT_ROOT>/ROCm-repos_AETS`
-- 研究資産（経路検証・再現手順・観測知見）
-  - `<ROCM_PROJECT_ROOT>/vega-hbmx-experiments`
-  - `<ROCM_PROJECT_ROOT>/vega_investigations`
-  - `<ROCM_PROJECT_ROOT>/vega-hbmx-pages`
-
----
-
-## 3. 固定仕様（agreement準拠）
-
-以下は実装で必ず守る固定仕様です。
-
-1. `update_config(overrides)` を主APIにする
-- allowlist 部分マージ
-- 更新前に `.bak` 作成
-
-2. `cargo` は絶対PATH優先
-- 推奨: `~/.cargo/bin/cargo`
-- 裸の `cargo` 呼び出しを避ける
-
-3. `run_inference` の設定反映方式
-- `multi_llm-client` が `--config` を正式サポートするまでは、
-  一時 `config.json` 差し替え -> 実行 -> 復元
-
-4. 返却フォーマット
-- 原則 `content` / `structuredContent` / `isError`
-
-5. free-form shell は禁止
-- 固定テンプレートコマンド + timeout + 出力長制限
-
----
-
-## 4. 現在の実装状況
-
-`src/mi25_tuning_mcp/server.py` 現在実装済みツール:
-
-- `ping`
-- `get_gpu_metrics`
-- `list_presets`
-- `run_inference`
-- `read_perf_log`
-- `read_inference_logs`
-- `summarize_perf_log`
-- `get_config`
-- `update_config`
-- `set_config_raw`（管理者向け。既定では無効）
-- `list_dir`
-- `read_text`
-- `read_file`
-- `write_file`
-- `run_client_check`
-
-実装済み仕様:
-
-- 全ツール返却を `content / structuredContent / isError` に統一
-- MCP tool call 監査ログ JSONL（既定: `MI25-tuning-MCP/logs/tool-calls.jsonl`）
-- `set_config_raw` は `MI25_ENABLE_SET_CONFIG_RAW=1` のときのみ有効
-
----
-
-## 5. セットアップ
+## セットアップ
 
 ```bash
-cd <ROCM_PROJECT_ROOT>/MI25-tuning-MCP
+cd /home/limonene/ROCm-project/MI25-tuning-MCP
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
@@ -115,167 +34,129 @@ mi25-tuning-mcp
 
 ---
 
-## 6. 環境変数
+## ツール一覧
 
-- `MI25_CLIENT_ROOT`
-  - 既定: `<ROCM_PROJECT_ROOT>/multi_llm-client`
-- `MI25_NOTES_ROOT`
-  - 既定: `<ROCM_PROJECT_ROOT>/Agents-note`
-- `MI25_MCP_AUDIT_LOG`
-  - 既定: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/logs/tool-calls.jsonl`
-- `MI25_ENABLE_SET_CONFIG_RAW`
-  - 既定: `0`（`set_config_raw` を無効化）
-
----
-
-## 7. 安全制約
-
-- `update_config`
-  - allowlist キーのみ更新
-  - `.bak` 自動作成
-- `write_file`
-  - `Agents-note/` 配下のみ書き込み
-- `read_file`
-  - プロジェクトルート配下のみ
-- `read_text`
-  - プロジェクトルート配下のみ
-- `list_dir`
-  - プロジェクトルート配下のみ
-- `run_inference`
-  - timeout 必須
-  - 実行後は config を復元
-  - 出力長を制限
-- `set_config_raw`
-  - 既定無効（明示的に `MI25_ENABLE_SET_CONFIG_RAW=1` が必要）
-- 監査ログ
-  - 全ツール呼び出しを JSONL に記録
+| ツール | 概要 |
+|--------|------|
+| `ping` | ヘルスチェック・パス確認 |
+| `get_gpu_metrics` | rocm-smi 経由で MI25 の VRAM / 温度 / 使用率を取得（未導入でも非エラー返却） |
+| `list_presets` | gfx900 プリセット名とデフォルトパラメータ一覧 |
+| `get_config` | `config.json` の読み取り |
+| `update_config` | allowlist キーを部分マージで更新（`.bak` 自動作成） |
+| `run_inference` | Rust クライアントでワンショット推論を実行 |
+| `read_perf_log` | JSONL ログの末尾 N 件を取得 |
+| `read_inference_logs` | `read_perf_log` の別名（広域履歴参照用） |
+| `summarize_perf_log` | TTFT / tok/s / エラー率などを集計 |
+| `list_dir` | ディレクトリ一覧（プロジェクトルート配下） |
+| `read_text` / `read_file` | テキストファイル読み取り（プロジェクトルート配下） |
+| `write_file` | ノートへの書き込み（`Agents-note/` 配下限定） |
+| `run_client_check` | `cargo check` を実行してビルドエラーを確認 |
+| `set_config_raw` | 設定の全体上書き（`MI25_ENABLE_SET_CONFIG_RAW=1` で有効化、既定は無効） |
 
 ---
 
-## 8. フェーズ計画（実装順）
+## 環境変数
 
-Phase 0:
-
-- `README.md`
-- `server.py`
-- `mcp-config.json`
-- `docs/tool-spec.md`
-- `tests/smoke.sh`
-
-Phase 1 (MVP):
-
-- `ping`
-- `get_gpu_metrics`
-- `get_config`
-- `update_config`
-- `run_inference`
-- `read_perf_log`
-- `summarize_perf_log`
-
-Phase 2:
-
-- `read_inference_logs`
-- `run_client_check`
-- 監査ログ JSONL
-
-Phase 3:
-
-- `multi_llm-client` 側 tool-calling 連携
-- `max_tool_roundtrips` / `allowed_tools` 適用
+| 変数 | 既定値 | 説明 |
+|------|--------|------|
+| `MI25_CLIENT_ROOT` | `../multi_llm-client` | Rust クライアントのディレクトリ |
+| `MI25_NOTES_ROOT` | `../Agents-note` | `write_file` の書き込み先ルート |
+| `MI25_MCP_AUDIT_LOG` | `./logs/tool-calls.jsonl` | 監査ログの出力先 |
+| `MI25_ENABLE_SET_CONFIG_RAW` | `0` | `set_config_raw` の有効化フラグ |
 
 ---
 
-## 9. 最低検証フロー
+## 安全制約
 
-1. `ping`
-2. `get_config`
-3. `update_config`（例: `{"preset": "gfx900_safe"}`）
-4. `run_inference`
-5. `read_perf_log`
-6. `summarize_perf_log`
-
-この6ステップが再現できれば、MVP運用の基礎が成立します。
-
----
-
-## 10. 参照
-
-- 正本合意: `<ROCM_PROJECT_ROOT>/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
-- TODO: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/TODO.md`
-- 関連MCP（インフラ層）: `<ROCM_PROJECT_ROOT>/ROCm-ollama-mcp`
-- 仕様書: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/SPEC.md`
-- ツール仕様: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/docs/tool-spec.md`
-- 正本参照資産反映: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/docs/reference-asset-map.md`
-- Phase 3 状態: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/docs/phase3-status.md`
+- **`update_config`**: allowlist 外のキーは拒否。更新前に `.bak` を保存
+- **`write_file`**: `Agents-note/` 配下のみ書き込み可
+- **`read_file` / `read_text` / `list_dir`**: プロジェクトルート配下のみ参照可
+- **`run_inference`**: タイムアウト必須、実行後に `config.json` を必ず復元
+- **`set_config_raw`**: 既定無効。明示的な環境変数が必要
+- **subprocess**: 固定コマンドテンプレートのみ使用（free-form shell 禁止）
+- **全ツール**: 監査ログ JSONL に tool call を記録
 
 ---
 
-## 11. テスト実行
+## Claude Code への接続
 
-重要:
-- LLM統合テストは既定では実行されません。
-- `MI25_RUN_LLM_INTEGRATION=1` を付けた場合のみ有効です。
+`~/.claude/settings.json` の `mcpServers` に追加します:
 
-`.venv` を有効化して、以下を実行します。
-
-```bash
-cd <ROCM_PROJECT_ROOT>/MI25-tuning-MCP
-source .venv/bin/activate
-./tests/smoke.sh
-
-# LLM統合テストも実行する場合
-MI25_RUN_LLM_INTEGRATION=1 ./tests/smoke.sh
+```json
+{
+  "mcpServers": {
+    "mi25_tuning": {
+      "command": "/home/limonene/ROCm-project/MI25-tuning-MCP/.venv/bin/mi25-tuning-mcp",
+      "args": [],
+      "cwd": "/home/limonene/ROCm-project/MI25-tuning-MCP",
+      "env": {
+        "MI25_CLIENT_ROOT": "/home/limonene/ROCm-project/multi_llm-client",
+        "MI25_NOTES_ROOT": "/home/limonene/ROCm-project/Agents-note"
+      }
+    }
+  }
+}
 ```
 
-`smoke.sh` では以下をまとめて実行します。
-
-- compile チェック
-- direct tool shape チェック
-- `tests/unit_direct_test.py`（MCP単体 + 失敗系 + sandbox統合）
-- `tests/protocol_tools_test.py`（stdio MCP protocol: `tools/list`, `tools/call`）
-- `tests/llm_bridge_integration_test.py`（bridge経由 LLM 統合。`MI25_RUN_LLM_INTEGRATION=1` で有効）
+または `mcp-config.json` を `ollama-mcp-bridge` 経由で使用することもできます。
 
 ---
 
-## 12. Phase 3 連携
+## Antigravity MCP 設定
 
-Phase 3 用の統合設定:
-
-- `mcp-config.phase3.json`
-  - `mi25_tuning` + `rocm_ops` + `rocm_ops_b` の統合
-  - `agent.max_tool_roundtrips`
-  - `agent.allowed_tools`
-
-実行ヘルパー:
+Antigravity で使う場合は `~/.gemini/antigravity/mcp_config.json` に `mcpServers` を定義します。
+テンプレートをコピーして実パスを展開します:
 
 ```bash
-cd <ROCM_PROJECT_ROOT>/MI25-tuning-MCP
-./tools/bridge_agent_chat.sh "Check MI25 runtime and summarize status in one sentence."
-```
-
----
-
-## 13. Antigravity MCP 設定例
-
-Antigravity で MCP を使う場合は、以下のファイルに `mcpServers` を定義します。
-
-- `~/.gemini/antigravity/mcp_config.json`
-- テンプレート: `<ROCM_PROJECT_ROOT>/MI25-tuning-MCP/mcp_config.template.json`
-
-セットアップ手順:
-
-```bash
-export ROCM_PROJECT_ROOT="/path/to/ROCm-project"
+export ROCM_PROJECT_ROOT="/home/limonene/ROCm-project"
 cp "${ROCM_PROJECT_ROOT}/MI25-tuning-MCP/mcp_config.template.json" \
   "${HOME}/.gemini/antigravity/mcp_config.json"
 sed -i "s#<ROCM_PROJECT_ROOT>#${ROCM_PROJECT_ROOT}#g" \
   "${HOME}/.gemini/antigravity/mcp_config.json"
 ```
 
-補足:
+- `command` は絶対パスを使用してください
+- 反映後は Antigravity の Language Server を再起動（または Window Reload）
+- Claude Code と併用する場合はプロジェクトルートの `.mcp.json` と内容を揃えると管理が楽です
 
-- トップレベルキーは `mcpServers`（複数形）を使う
-- `command` は相対PATHではなく絶対PATHを推奨
-- `<ROCM_PROJECT_ROOT>` を各自の実パスに置換して使う（例: `/home/alice/ROCm-project`）
-- 反映後は Antigravity の Language Server 再起動（または Window Reload）を実施
-- Claude Code 側を併用する場合は、プロジェクトルートの `.mcp.json` も同じ内容で管理すると運用が揃います
+---
+
+## 動作確認
+
+インストール後、以下の順で疎通を確認します:
+
+```
+ping → get_config → update_config → run_inference → read_perf_log → summarize_perf_log
+```
+
+---
+
+## テスト実行
+
+```bash
+cd /home/limonene/ROCm-project/MI25-tuning-MCP
+source .venv/bin/activate
+./tests/smoke.sh
+
+# LLM 統合テストも実行する場合
+MI25_RUN_LLM_INTEGRATION=1 ./tests/smoke.sh
+```
+
+`smoke.sh` が実行するテスト:
+
+1. コンパイルチェック + ツール形状チェック
+2. `tests/unit_direct_test.py` — MCP 単体 / 失敗系 / サンドボックス統合
+3. `tests/protocol_tools_test.py` — stdio MCP プロトコル（`tools/list` / `tools/call`）
+4. `tests/llm_bridge_integration_test.py` — ブリッジ経由 LLM 統合（`MI25_RUN_LLM_INTEGRATION=1` で有効）
+
+---
+
+## 関連ドキュメント
+
+| ドキュメント | 内容 |
+|------------|------|
+| [SPEC.md](SPEC.md) | 仕様書（設計決定・安全制約・DoD） |
+| [TODO.md](TODO.md) | 実装状況・残課題 |
+| [docs/tool-spec.md](docs/tool-spec.md) | ツール仕様詳細 |
+| [agreement.md](../Agents-note/Rust製クライアント/MCP対応案/agreement.md) | 正本合意書 |
+| [ROCm-ollama-mcp](../ROCm-ollama-mcp) | インフラ層 MCP（GPU / ROCm / Ollama 観測） |
