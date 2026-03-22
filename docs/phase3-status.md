@@ -7,6 +7,10 @@
 Phase 3 は agreement の short-term 方針（Rust 本体は当面変更しない）を維持し、
 `ROCm-ollama-mcp` bridge 連携で tool-calling を成立させる。
 
+明示事項:
+- 現時点の Phase 3 は bridge 経由の非侵襲連携。
+- `multi_llm-client` Rust 本体への本格的な tool-calling 組み込みは未実施。
+
 ## 2. 完了項目
 
 1. `multi_llm-client` 側 tool-calling 連携（必要時）

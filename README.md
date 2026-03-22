@@ -207,12 +207,19 @@ Phase 3:
 
 ## 11. テスト実行
 
+重要:
+- LLM統合テストは既定では実行されません。
+- `MI25_RUN_LLM_INTEGRATION=1` を付けた場合のみ有効です。
+
 `.venv` を有効化して、以下を実行します。
 
 ```bash
 cd ROCm-project/MI25-tuning-MCP
 source .venv/bin/activate
 ./tests/smoke.sh
+
+# LLM統合テストも実行する場合
+MI25_RUN_LLM_INTEGRATION=1 ./tests/smoke.sh
 ```
 
 `smoke.sh` では以下をまとめて実行します。
