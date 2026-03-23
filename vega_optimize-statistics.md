@@ -247,3 +247,28 @@ source: [main-node confirmed]
 追加確認:
 
 - `ROCBLAS_LAYER=63` の短時間再プローブでも `rocblas_trace_gemm_lines=0`（`g4_summary_tinyllama_latest_20260324_015056.txt`）。
+
+---
+
+## 12. rocprofv3 kernel dispatch probe（tinyllama）
+
+source: [main-node confirmed]  
+- `ROCm-MI25-build/g4-rocprofv3-dispatch-check.sh`
+- `ROCm-MI25-build/vega_path_check_logs/rocprofv3_summary_tinyllama_latest_20260324_020034.txt`
+
+要点:
+
+| 指標 | 値 |
+|---|---:|
+| `kernel_dispatch_rows` | 3605 |
+| `kernel_mul_mat_q_rows` | 151 |
+| `kernel_mul_mat_vec_rows` | 934 |
+| `kernel_flash_attn_rows` | 352 |
+| `kernel_quantize_rows` | 1085 |
+| `kernel_tensile_like_rows` | 0 |
+
+解釈:
+
+- dispatch 直接証跡（kernel trace）は取得に成功。
+- ただし今回の run では、観測 kernel は ggml-hip 側が中心。
+- `rocBLAS/Tensile` 名の dispatch は未観測で、`fallback` 資産アクセスとの直結は継続課題。
