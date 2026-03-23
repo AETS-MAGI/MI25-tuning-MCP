@@ -470,11 +470,16 @@ MIOpen は現時点では主経路の実証拠がないため、補助的・比�
 * fallback 型別集計を追加
   * `summarize-fallback-types.sh` で `Type_*` の `dat/hsaco` 読み込み内訳を固定
   * ただし dispatch 直接証跡は未確定
+* dispatch 境界プローブを追加
+  * `g4-fallback-strace-check.sh` に `STRACE_TIMESTAMP=1`（既定）と `PROBE_ROCBLAS_LOG=1` を実装
+  * `summarize-fallback-phases.sh` で pid単位の dat/hsaco 時系列 span を出力
+  * 最新観測では `dat span=0.035186s`, `hsaco span=1.302794s`, `rocblas_trace_gemm_lines=0`
 
 ### 11.2 残務（技術）
 
 * catalog read と dispatch を分離して証跡化する
   * 目的: `fallback` 資産アクセスだけでなく、呼び出し時にどの型・実装が選ばれたかを絞る
+* rocBLAS trace の GEMM 粒度を出す（現状は `create_handle` のみ観測）
 * catalog read と dispatch の境界を切り分ける追加証跡（GEMM 呼び出し粒度）
 * `balanced` 適用時の VRAM/安定性（長時間 run）を追加確認
 * 長文プロンプト条件で `safe` と `balanced` の逆転有無を確認

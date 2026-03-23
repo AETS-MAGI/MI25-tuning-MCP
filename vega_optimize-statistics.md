@@ -215,3 +215,35 @@ thread 4/6 比較:
 - 研究基準は `gfx900_safe` のまま維持。
 - クロスモデル既定値は `num_thread=4` を採用（qwen 側の安定性を優先）。
 - tinyllama 吞吐特化プロファイルとして `num_thread=6` を別線で保持。
+
+---
+
+## 11. dispatch 境界プローブ（timestamp + rocBLAS trace）
+
+source: [main-node confirmed]  
+- `ROCm-MI25-build/g4-fallback-strace-check.sh`（拡張版）
+- `ROCm-MI25-build/summarize-fallback-phases.sh`
+- `ROCm-MI25-build/vega_path_check_logs/g4_summary_tinyllama_latest_20260324_014707.txt`
+- `ROCm-MI25-build/vega_path_check_logs/fallback_phase_summary_tinyllama_latest_20260324_014707.tsv`
+
+計測要点:
+
+| 指標 | 値 | 解釈 |
+|---|---:|---|
+| `strace_timestamp` | `1` | `-tt` で時系列比較を有効化 |
+| `fallback_dat_openat` | `54` | fallback catalog（dat）読込あり |
+| `fallback_hsaco_openat` | `54` | fallback kernel（hsaco）読込あり |
+| dat span | `0.035186s` | 初期化バースト寄り |
+| hsaco span | `1.302794s` | 実行中にも分布する可能性 |
+| `rocblas_trace_handle_lines` | `1` | rocBLAS handle 作成は観測 |
+| `rocblas_trace_gemm_lines` | `0` | GEMM 呼び出し行は未観測 |
+
+判定:
+
+- `catalog read` と `dispatch` の境界観測は前進。
+- ただし dispatch 直接証跡（GEMM 呼び出し行）までは未到達。
+- 次段は rocBLAS trace の粒度改善、または別トレース手段の併用が必要。
+
+追加確認:
+
+- `ROCBLAS_LAYER=63` の短時間再プローブでも `rocblas_trace_gemm_lines=0`（`g4_summary_tinyllama_latest_20260324_015056.txt`）。
