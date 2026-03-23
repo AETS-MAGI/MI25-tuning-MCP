@@ -185,3 +185,33 @@ source: [main-node confirmed]
 
 - これは dispatch の直接証跡ではなく、catalog read の型分布を示す。
 - 次段は GEMM 呼び出し粒度の dispatch 追跡。
+
+---
+
+## 10. 追加反復（preset n=10 / thread 4,6 長時間）
+
+source: [main-node confirmed]  
+`multi_llm-client/worklog/2026-03-24_phase3-extended-bench.md`
+
+tinyllama preset sweep（steady）:
+
+| preset | n | steady_ttft_ms | steady_tok/s |
+|---|---:|---:|---:|
+| `gfx900_safe` | 9 | 112.44 | 215.87 |
+| `gfx900_balanced` | 9 | 94.44 | 216.46 |
+| `gfx900_longctx` | 9 | 103.67 | 213.37 |
+
+thread 4/6 比較:
+
+| model | num_thread | n | steady_ttft_ms | steady_tok/s |
+|---|---:|---:|---:|---:|
+| tinyllama | 4 | 19 | 99.95 | 213.65 |
+| tinyllama | 6 | 19 | 96.63 | 217.70 |
+| qwen2.5:7b | 4 | 9 | 296.33 | 49.36 |
+| qwen2.5:7b | 6 | 9 | 292.00 | 48.65 |
+
+更新結論:
+
+- 研究基準は `gfx900_safe` のまま維持。
+- クロスモデル既定値は `num_thread=4` を採用（qwen 側の安定性を優先）。
+- tinyllama 吞吐特化プロファイルとして `num_thread=6` を別線で保持。
