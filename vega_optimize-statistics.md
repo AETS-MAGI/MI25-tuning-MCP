@@ -272,3 +272,27 @@ source: [main-node confirmed]
 - dispatch 直接証跡（kernel trace）は取得に成功。
 - ただし今回の run では、観測 kernel は ggml-hip 側が中心。
 - `rocBLAS/Tensile` 名の dispatch は未観測で、`fallback` 資産アクセスとの直結は継続課題。
+
+---
+
+## 13. fallback+dispatch 統合ゲート（2026-03-24）
+
+source: [main-node confirmed]  
+- `ROCm-MI25-build/g4-fallback-dispatch-link-check.sh`
+- `ROCm-MI25-build/vega_path_check_logs/g4_link_summary_tinyllama_latest_20260324_020550.txt`
+
+要点:
+
+| 指標 | 値 | 解釈 |
+|---|---:|---|
+| `fallback_confirmed` | `1` | fallback 資産アクセスは同一条件 run で成立 |
+| `dispatch_confirmed` | `1` | dispatch trace は同一条件 run で成立 |
+| `direct_rocblas_or_tensile_dispatch` | `0` | rocBLAS/Tensile 名の dispatch は未観測 |
+| `link_status` | `indirect_link_only_same_scenario` | 「同一条件での間接リンク」段階 |
+| `rocblas_trace_gemm_lines` | `0` | rocBLAS trace は handle 作成まで |
+| `kernel_tensile_like_rows` | `0` | kernel 名ベースでは Tensile 直結なし |
+
+判定:
+
+- G4 以降の Phase 2 は、`fallback + dispatch` の同時観測まで前進。
+- 次の達成条件は `direct_rocblas_or_tensile_dispatch=1` を1件確保すること。

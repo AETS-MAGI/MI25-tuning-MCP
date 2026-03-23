@@ -478,6 +478,11 @@ MIOpen は現時点では主経路の実証拠がないため、補助的・比�
   * `g4-rocprofv3-dispatch-check.sh` で `kernel_trace.csv` を取得
   * `tinyllama` で `kernel_dispatch_rows=3605` を確認（dispatch 直接証跡）
   * ただし `kernel_tensile_like_rows=0` で、現時点は ggml-hip 側 kernel が中心
+* fallback+dispatch 統合判定を追加
+  * `g4-fallback-dispatch-link-check.sh` を追加し、`strace` と `rocprofv3` を同一条件で連続実行
+  * `g4_link_summary_tinyllama_latest_20260324_020550.txt` で
+    `fallback_confirmed=1`, `dispatch_confirmed=1`, `link_status=indirect_link_only_same_scenario`
+  * つまり「同一条件 run で両証跡が成立」は確認済み
 
 ### 11.2 残務（技術）
 
@@ -486,6 +491,7 @@ MIOpen は現時点では主経路の実証拠がないため、補助的・比�
 * rocBLAS trace の GEMM 粒度を出す（現状は `create_handle` のみ観測）
 * catalog read と dispatch の境界を切り分ける追加証跡（GEMM 呼び出し粒度）
 * `fallback` 資産アクセスと同一 run で `rocBLAS/Tensile` dispatch 名を直結させる
+  * 目標値: `direct_rocblas_or_tensile_dispatch=1`
 * `balanced` 適用時の VRAM/安定性（長時間 run）を追加確認
 * 長文プロンプト条件で `safe` と `balanced` の逆転有無を確認
 
