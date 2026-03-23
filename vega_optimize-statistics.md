@@ -294,3 +294,35 @@ source: [main-node confirmed]
 - G4 以降の Phase 2 は、`fallback + dispatch` の同時観測まで前進。
 - 上記 2 モデルで同じ判定になり、現状のボトルネックは model 固有ではなく経路可視化側に寄っている。
 - 次の達成条件は `direct_rocblas_or_tensile_dispatch=1` を1件確保すること。
+
+---
+
+## 14. ROCBLAS_LAYER スイープ（trace 粒度確定, 2026-03-24）
+
+source: [main-node confirmed]  
+- `ROCm-MI25-build/g4-rocblas-layer-sweep.sh`
+- `ROCm-MI25-build/vega_path_check_logs/g4_rocblas_layer_sweep_tinyllama_latest_20260324_021652.txt`
+- `ROCm-MI25-build/vega_path_check_logs/g4_rocblas_layer_sweep_qwen2.5_7b_20260324_021747.txt`
+
+比較（共通傾向）:
+
+| layer | tinyllama `trace_lines/gemm_lines` | qwen `trace_lines/gemm_lines` | 備考 |
+|---:|---:|---:|---|
+| 1 | `1 / 0` | `1 / 0` | `rocblas_create_handle` のみ |
+| 8 | `0 / 0` | `0 / 0` | internal 単体では有効行なし |
+| 9 | `1 / 0` | `1 / 0` | trace + internal |
+| 15 | `1 / 0` | `1 / 0` | bench/profile 有効でも行増加なし |
+| 63 | `1 / 0` | `1 / 0` | 15 と同等（過剰ビット） |
+
+確定:
+
+- 観測既定値は `ROCBLAS_LAYER=9` を採用。
+- 理由:
+  - `1` と同等の情報を維持しつつ internal(bit 8) を保持
+  - `63` より運用が単純
+- なお現行 GGUF run では `bench/profile` は 0 行、`gemm` 行も 0 のまま。
+
+次段:
+
+- `ROCBLAS_LAYER` 探索は完了扱い。
+- 以後は「rocBLAS GEMM を実際に呼ぶ workload 条件」の探索へ移る。
