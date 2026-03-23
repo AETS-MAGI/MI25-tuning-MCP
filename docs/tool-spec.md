@@ -62,8 +62,9 @@ allowlist keys:
 
 ### 3.3 推論・ログ
 
-- `run_inference(prompt, preset="gfx900_safe", model=null, timeout_secs=90, max_output_chars=4000)`
+- `run_inference(prompt, preset=null, model=null, timeout_secs=90, max_output_chars=4000)`
   - 一時 `config.json` 差し替え -> 実行 -> 復元
+  - `preset=null` のときは `config.json` の現在値を利用
   - `stdout`, `stderr`, `latest_log_entry`, `log_path` を返す
 - `read_perf_log(n=10, preset_filter=null, max_output_chars=6000)`
   - JSONL の末尾読み取り

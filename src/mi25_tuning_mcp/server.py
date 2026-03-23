@@ -526,7 +526,7 @@ def list_presets() -> dict[str, Any]:
 @audited_tool()
 def run_inference(
     prompt: str,
-    preset: str = "gfx900_safe",
+    preset: str | None = None,
     model: str | None = None,
     timeout_secs: int = 90,
     max_output_chars: int = 4000,
@@ -536,7 +536,7 @@ def run_inference(
         return _err("prompt must not be empty", code="invalid_argument")
     if not CLIENT_ROOT.exists():
         return _err(f"client_root not found: {CLIENT_ROOT}", code="not_found")
-    if preset not in PRESET_PARAMS:
+    if preset is not None and preset not in PRESET_PARAMS:
         return _err(
             f"unknown preset: {preset}",
             code="invalid_preset",
@@ -554,7 +554,8 @@ def run_inference(
 
     bak_path = config_path.with_suffix(".json.run_bak")
     override_cfg = dict(original_cfg)
-    override_cfg["preset"] = preset
+    if preset is not None:
+        override_cfg["preset"] = preset
     override_cfg["stream"] = False
     override_cfg["inline_stream"] = False
     if model:
@@ -592,7 +593,8 @@ def run_inference(
             "status": status,
             "returncode": rc,
             "elapsed_ms": elapsed_ms,
-            "preset": preset,
+            "preset": override_cfg.get("preset"),
+            "requested_preset": preset,
             "model": model or override_cfg.get("model_name"),
             "command": cmd,
             "log_path": str(log_file) if log_file else None,
