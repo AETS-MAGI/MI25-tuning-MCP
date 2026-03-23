@@ -158,5 +158,7 @@ MI25_RUN_LLM_INTEGRATION=1 ./tests/smoke.sh
 | [SPEC.md](SPEC.md) | 仕様書（設計決定・安全制約・DoD） |
 | [MI25-tuning-MCP_TODO.md](../MI25_TODO/MI25-tuning-MCP_TODO.md) | 実装状況・残課題（MI25_TODO集約） |
 | [docs/tool-spec.md](docs/tool-spec.md) | ツール仕様詳細 |
+| [vega_optimize-statics.md](vega_optimize-statics.md) | Vega/gfx900 最適化の定性戦略メモ |
+| [vega_optimize-statistics.md](vega_optimize-statistics.md) | Vega/gfx900 最適化の定量メモ（実測値） |
 | [agreement.md](../Agents-note/Rust製クライアント/MCP対応案/agreement.md) | 正本合意書 |
 | [ROCm-ollama-mcp](../ROCm-ollama-mcp) | インフラ層 MCP（GPU / ROCm / Ollama 観測） |
