@@ -279,20 +279,18 @@ source: [main-node confirmed]
 
 source: [main-node confirmed]  
 - `ROCm-MI25-build/g4-fallback-dispatch-link-check.sh`
-- `ROCm-MI25-build/vega_path_check_logs/g4_link_summary_tinyllama_latest_20260324_020550.txt`
+- `ROCm-MI25-build/vega_path_check_logs/g4_link_summary_tinyllama_latest_20260324_020803.txt`
+- `ROCm-MI25-build/vega_path_check_logs/g4_link_summary_qwen2.5_7b_20260324_021010.txt`
 
 要点:
 
-| 指標 | 値 | 解釈 |
-|---|---:|---|
-| `fallback_confirmed` | `1` | fallback 資産アクセスは同一条件 run で成立 |
-| `dispatch_confirmed` | `1` | dispatch trace は同一条件 run で成立 |
-| `direct_rocblas_or_tensile_dispatch` | `0` | rocBLAS/Tensile 名の dispatch は未観測 |
-| `link_status` | `indirect_link_only_same_scenario` | 「同一条件での間接リンク」段階 |
-| `rocblas_trace_gemm_lines` | `0` | rocBLAS trace は handle 作成まで |
-| `kernel_tensile_like_rows` | `0` | kernel 名ベースでは Tensile 直結なし |
+| model | `fallback_confirmed` | `dispatch_confirmed` | `direct_rocblas_or_tensile_dispatch` | `rocblas_trace_gemm_lines` | `kernel_tensile_like_rows` | `link_status` |
+|---|---:|---:|---:|---:|---:|---|
+| `tinyllama:latest` | 1 | 1 | 0 | 0 | 0 | `indirect_link_only_same_scenario` |
+| `qwen2.5:7b` | 1 | 1 | 0 | 0 | 0 | `indirect_link_only_same_scenario` |
 
 判定:
 
 - G4 以降の Phase 2 は、`fallback + dispatch` の同時観測まで前進。
+- 上記 2 モデルで同じ判定になり、現状のボトルネックは model 固有ではなく経路可視化側に寄っている。
 - 次の達成条件は `direct_rocblas_or_tensile_dispatch=1` を1件確保すること。
