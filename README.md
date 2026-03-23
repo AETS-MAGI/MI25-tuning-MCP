@@ -156,7 +156,7 @@ MI25_RUN_LLM_INTEGRATION=1 ./tests/smoke.sh
 | ドキュメント | 内容 |
 |------------|------|
 | [SPEC.md](SPEC.md) | 仕様書（設計決定・安全制約・DoD） |
-| [TODO.md](TODO.md) | 実装状況・残課題 |
+| [MI25-tuning-MCP_TODO.md](../MI25_TODO/MI25-tuning-MCP_TODO.md) | 実装状況・残課題（MI25_TODO集約） |
 | [docs/tool-spec.md](docs/tool-spec.md) | ツール仕様詳細 |
 | [agreement.md](../Agents-note/Rust製クライアント/MCP対応案/agreement.md) | 正本合意書 |
 | [ROCm-ollama-mcp](../ROCm-ollama-mcp) | インフラ層 MCP（GPU / ROCm / Ollama 観測） |

@@ -204,7 +204,7 @@ Phase 3:
 ## 10. 参照
 
 - 正本合意: `ROCm-project/Agents-note/Rust製クライアント/MCP対応案/agreement.md`
-- TODO: `ROCm-project/MI25-tuning-MCP/TODO.md`
+- TODO: `ROCm-project/MI25_TODO/MI25-tuning-MCP_TODO.md`
 - 関連MCP（インフラ層）: `ROCm-project/ROCm-ollama-mcp`
 - 仕様書: `ROCm-project/MI25-tuning-MCP/SPEC.md`
 - ツール仕様: `ROCm-project/MI25-tuning-MCP/docs/tool-spec.md`
