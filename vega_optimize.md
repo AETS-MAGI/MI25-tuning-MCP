@@ -457,14 +457,22 @@ MIOpen は現時点では主経路の実証拠がないため、補助的・比�
 * クライアント層の比較自動化を追加
   * `multi_llm-client` に one-shot CLI（`--prompt` など）
   * `multi_llm-client/scripts/phase3_bench.sh` で preset/thread/keep_alive sweep を反復可能化
+* Phase3 初回一括測定（`all x3`）を実施し、`vega_optimize-statistics.md` に反映
+* n=10 反復測定を追加実施
+  * `tinyllama`: `num_thread=2/4/6`、`keep_alive=0s/10m`
+  * `qwen2.5:7b`: `keep_alive=0s/10m`
+  * 実務候補: `safe + keep_alive=10m + num_thread=4`（吞吐最優先は `num_thread=6`）
+* fallback 型別集計を追加
+  * `summarize-fallback-types.sh` で `Type_*` の `dat/hsaco` 読み込み内訳を固定
+  * ただし dispatch 直接証跡は未確定
 
 ### 11.2 残務（技術）
 
 * catalog read と dispatch を分離して証跡化する
   * 目的: `fallback` 資産アクセスだけでなく、呼び出し時にどの型・実装が選ばれたかを絞る
-* `safe` 基準で `num_thread` 感度を再測（最低 2/4/6）
-* `keep_alive=0s/10m` の warm 影響をモデル別に比較
-* `balanced` の吞吐優位が再現するかを反復（10回以上）で確認
+* catalog read と dispatch の境界を切り分ける追加証跡（GEMM 呼び出し粒度）
+* `balanced` / `longctx` の吞吐優位が再現するかを反復（10回以上）で確認
+* `num_thread` は `4/6` の二択で長時間安定性（揺れ・失速）を確認
 
 ### 11.3 残務（運用）
 
