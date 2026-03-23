@@ -443,3 +443,30 @@ MIOpen は現時点では主経路の実証拠がないため、補助的・比�
 * 無理筋のパッチに依存しすぎない
 
 という意味で、長く使える戦略になります。
+
+---
+
+## 11. 2026-03-24 時点の進捗と残務
+
+### 11.1 進捗（確定）
+
+* `safe` 固定方針は維持（研究基準 preset）
+* `fallback_confirmed` は runtime 証跡で達成済み
+  * `g4_summary_tinyllama_latest_20260324_005717.txt`
+  * `fallback_dat_openat=54`, `fallback_hsaco_openat=54`
+* クライアント層の比較自動化を追加
+  * `multi_llm-client` に one-shot CLI（`--prompt` など）
+  * `multi_llm-client/scripts/phase3_bench.sh` で preset/thread/keep_alive sweep を反復可能化
+
+### 11.2 残務（技術）
+
+* catalog read と dispatch を分離して証跡化する
+  * 目的: `fallback` 資産アクセスだけでなく、呼び出し時にどの型・実装が選ばれたかを絞る
+* `safe` 基準で `num_thread` 感度を再測（最低 2/4/6）
+* `keep_alive=0s/10m` の warm 影響をモデル別に比較
+* `balanced` の吞吐優位が再現するかを反復（10回以上）で確認
+
+### 11.3 残務（運用）
+
+* 外部投稿（AMD Community / Discord / forum）への最終反映
+* 公開リンクを導線ドキュメントへ確定反映

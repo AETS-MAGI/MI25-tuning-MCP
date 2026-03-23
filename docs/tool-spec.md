@@ -52,6 +52,7 @@ allowlist keys:
 - `max_tokens`
 - `num_ctx`
 - `num_batch`
+- `num_thread`
 - `temperature`
 - `stream`
 - `inline_stream`
