@@ -411,10 +411,10 @@ flowchart TD
 
 という発想です。
 
-そして、その“まだ走れる道”として有望なのが、
+そして、その”まだ走れる道”として有望なのが、
 
-* MIOpen の solver 選択段
-* rocBLAS / Tensile の non-dot4 側
+* rocBLAS / Tensile の non-dot4 側（現行 LLM 推論スタックでの第一候補）
+* MIOpen の solver 選択段（補助線・比較参照）
 * クライアント層のセッティング
 
 だと考えています。

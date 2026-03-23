@@ -1,7 +1,7 @@
 # Vega最適化 統計メモ（MI25/gfx900）
 
 最終更新: 2026-03-24  
-用途: `vega_optimize-statics.md` の定性戦略に対応する定量メモ。
+用途: `vega_optimize.md` の定性戦略に対応する定量メモ。
 
 ---
 
