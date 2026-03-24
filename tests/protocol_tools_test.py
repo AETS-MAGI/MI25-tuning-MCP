@@ -60,6 +60,7 @@ async def _run() -> None:
                 "run_inference",
                 "run_client_bench",
                 "run_client_bench_compare",
+                "run_client_bench_report",
                 "read_perf_log",
                 "summarize_perf_log",
             }
@@ -132,6 +133,19 @@ async def _run() -> None:
             if compare_err.get("code") not in {"not_found", "invalid_path"}:
                 raise AssertionError(f"unexpected compare error code: {compare_err}")
             print("[protocol] tools/call run_client_bench_compare invalid: ok")
+
+            report_invalid = await session.call_tool(
+                "run_client_bench_report",
+                {"input_tsv": "worklog/no-bench.tsv", "report_format": "json"},
+            )
+            report_invalid_payload = _unwrap_tool_payload(report_invalid)
+            _assert_inner_shape("run_client_bench_report invalid", report_invalid_payload)
+            if not report_invalid_payload.get("isError"):
+                raise AssertionError("run_client_bench_report invalid must be isError=true")
+            report_err = report_invalid_payload.get("structuredContent", {}).get("error", {})
+            if report_err.get("code") not in {"not_found", "invalid_path"}:
+                raise AssertionError(f"unexpected report error code: {report_err}")
+            print("[protocol] tools/call run_client_bench_report invalid: ok")
 
 
 def main() -> int:

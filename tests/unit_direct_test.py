@@ -192,6 +192,14 @@ def main() -> int:
             ),
             expected_error_code="not_found",
         )
+        _run_case(
+            "run_client_bench_report_not_found",
+            lambda: server.run_client_bench_report(
+                input_tsv="worklog/no-bench.tsv",
+                report_format="markdown",
+            ),
+            expected_error_code="not_found",
+        )
 
         # Failure-path checks
         _run_case(

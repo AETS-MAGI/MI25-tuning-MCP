@@ -76,6 +76,10 @@ allowlist keys:
   - 比較 TSV パスと先頭プレビューを返す
   - 成功時は `multi_llm-client/worklog/mcp_bench_compare_auto_summary_YYYY-MM-DD.md` へ1行追記
   - 失敗時は `multi_llm-client/worklog/mcp_bench_compare_fail_YYYY-MM-DD.jsonl` へ記録（ベストエフォート）
+- `run_client_bench_report(input_tsv, report_out=null, report_format="tsv", timeout_secs=180, max_output_chars=6000)`
+  - `multi_llm-client --bench-report ... --report-format ...` を実行
+  - `report_format` は `tsv|markdown|md|json|all`
+  - 生成レポートパス一覧（`report_out_paths`）と存在したパス一覧（`report_out_exists_paths`）を返す
 - `read_perf_log(n=10, preset_filter=null, max_output_chars=6000)`
   - JSONL の末尾読み取り
 - `read_inference_logs(n=20, preset_filter=null, max_output_chars=6000)`
@@ -111,6 +115,7 @@ allowlist keys:
 - `inference_failed`
 - `bench_failed`
 - `bench_compare_failed`
+- `bench_report_failed`
 - `check_failed`
 - `timeout`
 - `disabled_by_policy`

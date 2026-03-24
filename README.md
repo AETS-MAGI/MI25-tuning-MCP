@@ -46,6 +46,7 @@ mi25-tuning-mcp
 | `run_inference` | Rust クライアントでワンショット推論を実行 |
 | `run_client_bench` | Rust クライアントの `--bench` を実行し、`phase_summary` 生成まで返却 |
 | `run_client_bench_compare` | 2つの `phase_summary.tsv` を比較して差分 TSV を生成（成功/失敗ログを `multi_llm-client/worklog` に自動追記） |
+| `run_client_bench_report` | 既存 bench TSV から mode summary レポートを生成（`tsv/markdown/json/all`） |
 | `read_perf_log` | JSONL ログの末尾 N 件を取得 |
 | `read_inference_logs` | `read_perf_log` の別名（広域履歴参照用） |
 | `summarize_perf_log` | TTFT / tok/s / エラー率などを集計 |
@@ -76,6 +77,7 @@ mi25-tuning-mcp
 - **`run_inference`**: タイムアウト必須、実行後に `config.json` を必ず復元
 - **`run_client_bench`**: `mode` allowlist を強制し、`--bench` 固定テンプレートのみ実行
 - **`run_client_bench_compare`**: 入出力 TSV パスを `CLIENT_ROOT` / `PROJECT_ROOT` 配下に限定
+- **`run_client_bench_report`**: 入出力 TSV/レポートパスを `CLIENT_ROOT` / `PROJECT_ROOT` 配下に限定
 - **`set_config_raw`**: 既定無効。明示的な環境変数が必要
 - **subprocess**: 固定コマンドテンプレートのみ使用（free-form shell 禁止）
 - **全ツール**: 監査ログ JSONL に tool call を記録
@@ -136,13 +138,14 @@ ping → get_config → update_config → run_inference → read_perf_log → su
 `bench` 系の標準フロー:
 
 ```
-run_client_bench (baseline) -> run_client_bench (side) -> run_client_bench_compare
+run_client_bench (baseline) -> run_client_bench (side) -> run_client_bench_compare -> run_client_bench_report
 ```
 
 成果物の既定保存先（`MI25_CLIENT_ROOT=<project>/multi_llm-client` の場合）:
 
 - baseline/side TSV: `<project>/multi_llm-client/worklog/mcp_bench_*`
 - compare TSV: `<project>/multi_llm-client/worklog/mcp_bench_compare_*`
+- report TSV/MD/JSON: `<project>/multi_llm-client/worklog/*_mode_summary.(tsv|md|json)`
 - compare 成功追記: `<project>/multi_llm-client/worklog/mcp_bench_compare_auto_summary_YYYY-MM-DD.md`
 - compare 失敗追記: `<project>/multi_llm-client/worklog/mcp_bench_compare_fail_YYYY-MM-DD.jsonl`
 

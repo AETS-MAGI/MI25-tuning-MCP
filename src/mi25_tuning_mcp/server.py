@@ -121,6 +121,14 @@ BENCH_MODE_ALLOWLIST = {
     "all",
 }
 
+BENCH_REPORT_FORMAT_ALLOWLIST = {
+    "tsv",
+    "markdown",
+    "md",
+    "json",
+    "all",
+}
+
 # Candidate rocm-smi commands for compatibility across versions.
 ROCM_SMI_COMMANDS = [
     ["rocm-smi", "--showuse", "--showmemuse", "--showtemp", "--showpower", "--json"],
@@ -289,6 +297,11 @@ def _extract_bench_line_path(text: str, marker: str) -> str | None:
     if not m:
         return None
     return m.group("path").strip()
+
+
+def _extract_bench_line_paths(text: str, marker: str) -> list[str]:
+    pattern = re.compile(rf"{re.escape(marker)}(?P<path>.+)$", flags=re.MULTILINE)
+    return [m.group("path").strip() for m in pattern.finditer(text)]
 
 
 def _read_head(path: Path, max_lines: int = 6) -> str:
@@ -1007,6 +1020,127 @@ def run_client_bench_compare(
         )
 
     return _ok("run_client_bench_compare completed", payload)
+
+
+@audited_tool()
+def run_client_bench_report(
+    input_tsv: str,
+    report_out: str | None = None,
+    report_format: str = "tsv",
+    timeout_secs: int = 180,
+    max_output_chars: int = 6000,
+) -> dict[str, Any]:
+    """Run `--bench-report` on an existing bench TSV and return generated report paths."""
+    if not CLIENT_ROOT.exists():
+        return _err(f"client_root not found: {CLIENT_ROOT}", code="not_found")
+    if timeout_secs <= 0:
+        return _err("timeout_secs must be > 0", code="invalid_argument")
+    if max_output_chars <= 0:
+        return _err("max_output_chars must be > 0", code="invalid_argument")
+
+    input_path = _safe_path_any(input_tsv, [CLIENT_ROOT, PROJECT_ROOT])
+    if input_path is None:
+        return _err(
+            "invalid input_tsv path",
+            code="invalid_path",
+            structured={"input_tsv": input_tsv},
+        )
+    if not input_path.exists():
+        return _err(
+            f"bench report input not found: {input_path}",
+            code="not_found",
+            structured={"input_tsv": str(input_path)},
+        )
+
+    format_norm = report_format.strip().lower()
+    if format_norm not in BENCH_REPORT_FORMAT_ALLOWLIST:
+        return _err(
+            f"invalid report_format: {report_format}",
+            code="invalid_argument",
+            structured={
+                "report_format": report_format,
+                "allowed_report_formats": sorted(BENCH_REPORT_FORMAT_ALLOWLIST),
+            },
+        )
+
+    resolved_report_out: Path | None = None
+    if report_out:
+        resolved_report_out = _safe_path_any(report_out, [CLIENT_ROOT, PROJECT_ROOT])
+        if resolved_report_out is None:
+            return _err(
+                "invalid report_out path",
+                code="invalid_path",
+                structured={"report_out": report_out},
+            )
+
+    cmd = _client_binary_cmd() + [
+        "--bench-report",
+        str(input_path),
+        "--report-format",
+        format_norm,
+    ]
+    if resolved_report_out:
+        cmd.extend(["--report-out", str(resolved_report_out)])
+
+    try:
+        rc, out, err, elapsed_ms = _run_cmd(cmd, cwd=CLIENT_ROOT, timeout_secs=timeout_secs)
+    except subprocess.TimeoutExpired:
+        return _err(
+            f"run_client_bench_report timed out after {timeout_secs}s",
+            code="timeout",
+            structured={"timeout_secs": timeout_secs, "command": cmd},
+        )
+    except FileNotFoundError as e:
+        return _err(f"failed to launch command: {e}", code="exec_not_found")
+    except Exception as e:
+        return _err(f"run_client_bench_report failed: {e}", code="runtime_error")
+
+    merged = f"{out}\n{err}"
+    reported_paths = _extract_bench_line_paths(merged, "[bench-report] out=")
+    resolved_paths: list[Path] = []
+    for p in reported_paths:
+        resolved = _safe_path_any(p, [CLIENT_ROOT, PROJECT_ROOT])
+        if resolved:
+            resolved_paths.append(resolved)
+
+    if not resolved_paths and resolved_report_out is not None:
+        resolved_paths.append(resolved_report_out)
+
+    exists_paths: list[str] = []
+    missing_paths: list[str] = []
+    for p in resolved_paths:
+        if p.exists():
+            exists_paths.append(str(p))
+        else:
+            missing_paths.append(str(p))
+
+    marker_failed = "[bench-report-error]" in merged
+    status = "ok"
+    if rc != 0 or marker_failed or not exists_paths:
+        status = "failed"
+
+    payload = {
+        "status": status,
+        "returncode": rc,
+        "elapsed_ms": elapsed_ms,
+        "command": cmd,
+        "input_tsv": str(input_path),
+        "report_format": format_norm,
+        "report_out_paths": [str(p) for p in resolved_paths],
+        "report_out_exists_paths": exists_paths,
+        "report_out_missing_paths": missing_paths,
+        "stdout": _truncate_text(out, max_output_chars),
+        "stderr": _truncate_text(err, 1200) if err else "",
+    }
+
+    if status != "ok":
+        return _err(
+            "run_client_bench_report failed",
+            code="bench_report_failed",
+            structured=payload,
+        )
+
+    return _ok("run_client_bench_report completed", payload)
 
 
 # ---------------------------------------------------------------------------
