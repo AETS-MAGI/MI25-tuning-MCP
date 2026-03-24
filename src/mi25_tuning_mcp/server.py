@@ -1073,14 +1073,16 @@ def run_client_bench_report(
                 structured={"report_out": report_out},
             )
 
-    cmd = _client_binary_cmd() + [
+    report_args = [
         "--bench-report",
         str(input_path),
         "--report-format",
         format_norm,
     ]
+    cmd = _client_binary_cmd() + report_args
     if resolved_report_out:
         cmd.extend(["--report-out", str(resolved_report_out)])
+        report_args.extend(["--report-out", str(resolved_report_out)])
 
     try:
         rc, out, err, elapsed_ms = _run_cmd(cmd, cwd=CLIENT_ROOT, timeout_secs=timeout_secs)
@@ -1096,6 +1098,24 @@ def run_client_bench_report(
         return _err(f"run_client_bench_report failed: {e}", code="runtime_error")
 
     merged = f"{out}\n{err}"
+    # If a stale prebuilt binary does not support --report-format yet, retry via cargo run.
+    if "unknown argument: --report-format" in merged and cmd and cmd[0] != _cargo_bin():
+        cargo_cmd = [_cargo_bin(), "run", "--"] + report_args
+        try:
+            rc, out, err, elapsed_ms = _run_cmd(cargo_cmd, cwd=CLIENT_ROOT, timeout_secs=timeout_secs)
+            cmd = cargo_cmd
+            merged = f"{out}\n{err}"
+        except subprocess.TimeoutExpired:
+            return _err(
+                f"run_client_bench_report timed out after {timeout_secs}s",
+                code="timeout",
+                structured={"timeout_secs": timeout_secs, "command": cargo_cmd},
+            )
+        except FileNotFoundError as e:
+            return _err(f"failed to launch command: {e}", code="exec_not_found")
+        except Exception as e:
+            return _err(f"run_client_bench_report failed: {e}", code="runtime_error")
+
     reported_paths = _extract_bench_line_paths(merged, "[bench-report] out=")
     resolved_paths: list[Path] = []
     for p in reported_paths:
