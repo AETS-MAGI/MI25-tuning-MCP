@@ -299,6 +299,65 @@ def _read_head(path: Path, max_lines: int = 6) -> str:
         return ""
 
 
+def _append_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(text)
+
+
+def _record_bench_compare_outcome(
+    *,
+    status: str,
+    payload: dict[str, Any],
+) -> dict[str, str | None]:
+    """Best-effort append for bench-compare outcome logs under client worklog."""
+    out: dict[str, str | None] = {
+        "success_log_path": None,
+        "failure_log_path": None,
+    }
+    try:
+        worklog_dir = CLIENT_ROOT / "worklog"
+        ts = datetime.now().astimezone()
+        day = ts.strftime("%Y-%m-%d")
+        ts_text = ts.strftime("%Y-%m-%d %H:%M:%S %z")
+
+        baseline = str(payload.get("baseline_phase_summary", ""))
+        side = str(payload.get("side_phase_summary", ""))
+        compare_out = str(payload.get("compare_out", ""))
+        elapsed_ms = payload.get("elapsed_ms")
+        rc = payload.get("returncode")
+
+        if status == "ok":
+            log_path = worklog_dir / f"mcp_bench_compare_auto_summary_{day}.md"
+            line = (
+                f"- {ts_text} status=ok rc={rc} elapsed_ms={elapsed_ms} "
+                f"baseline={baseline} side={side} out={compare_out}\n"
+            )
+            _append_text(log_path, line)
+            out["success_log_path"] = str(log_path)
+            return out
+
+        fail_path = worklog_dir / f"mcp_bench_compare_fail_{day}.jsonl"
+        event = {
+            "ts": ts.isoformat(),
+            "status": status,
+            "returncode": rc,
+            "elapsed_ms": elapsed_ms,
+            "baseline_phase_summary": baseline,
+            "side_phase_summary": side,
+            "compare_out": compare_out,
+            "stderr": payload.get("stderr", ""),
+            "stdout": payload.get("stdout", ""),
+            "command": payload.get("command", []),
+        }
+        _append_text(fail_path, json.dumps(event, ensure_ascii=False) + "\n")
+        out["failure_log_path"] = str(fail_path)
+    except Exception:
+        # Logging failure should never block primary tool response.
+        pass
+    return out
+
+
 def _run_cmd(
     cmd: list[str],
     *,
@@ -933,6 +992,12 @@ def run_client_bench_compare(
         "stdout": _truncate_text(out, max_output_chars),
         "stderr": _truncate_text(err, 1200) if err else "",
     }
+
+    outcome_paths = _record_bench_compare_outcome(status=status, payload=payload)
+    if outcome_paths.get("success_log_path"):
+        payload["success_log_path"] = outcome_paths["success_log_path"]
+    if outcome_paths.get("failure_log_path"):
+        payload["failure_log_path"] = outcome_paths["failure_log_path"]
 
     if status != "ok":
         return _err(

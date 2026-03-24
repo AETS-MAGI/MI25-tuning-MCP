@@ -45,7 +45,7 @@ mi25-tuning-mcp
 | `update_config` | allowlist キーを部分マージで更新（`.bak` 自動作成） |
 | `run_inference` | Rust クライアントでワンショット推論を実行 |
 | `run_client_bench` | Rust クライアントの `--bench` を実行し、`phase_summary` 生成まで返却 |
-| `run_client_bench_compare` | 2つの `phase_summary.tsv` を比較して差分 TSV を生成 |
+| `run_client_bench_compare` | 2つの `phase_summary.tsv` を比較して差分 TSV を生成（成功/失敗ログを `multi_llm-client/worklog` に自動追記） |
 | `read_perf_log` | JSONL ログの末尾 N 件を取得 |
 | `read_inference_logs` | `read_perf_log` の別名（広域履歴参照用） |
 | `summarize_perf_log` | TTFT / tok/s / エラー率などを集計 |
@@ -132,6 +132,19 @@ sed -i "s#<ROCM_PROJECT_ROOT>#${ROCM_PROJECT_ROOT}#g" \
 ```
 ping → get_config → update_config → run_inference → read_perf_log → summarize_perf_log
 ```
+
+`bench` 系の標準フロー:
+
+```
+run_client_bench (baseline) -> run_client_bench (side) -> run_client_bench_compare
+```
+
+成果物の既定保存先（`MI25_CLIENT_ROOT=<project>/multi_llm-client` の場合）:
+
+- baseline/side TSV: `<project>/multi_llm-client/worklog/mcp_bench_*`
+- compare TSV: `<project>/multi_llm-client/worklog/mcp_bench_compare_*`
+- compare 成功追記: `<project>/multi_llm-client/worklog/mcp_bench_compare_auto_summary_YYYY-MM-DD.md`
+- compare 失敗追記: `<project>/multi_llm-client/worklog/mcp_bench_compare_fail_YYYY-MM-DD.jsonl`
 
 ---
 

@@ -1,6 +1,6 @@
 # MI25-tuning-MCP Tool Spec
 
-最終更新: 2026-03-24  
+最終更新: 2026-03-25  
 正本: `../SPEC.md`, `../../Agents-note/Rust製クライアント/MCP対応案/agreement.md`
 
 ## 1. 共通仕様
@@ -74,6 +74,8 @@ allowlist keys:
 - `run_client_bench_compare(baseline_phase_summary, side_phase_summary, compare_out=null, timeout_secs=180, max_output_chars=6000)`
   - `multi_llm-client --bench-compare ... --compare-side ...` を実行
   - 比較 TSV パスと先頭プレビューを返す
+  - 成功時は `multi_llm-client/worklog/mcp_bench_compare_auto_summary_YYYY-MM-DD.md` へ1行追記
+  - 失敗時は `multi_llm-client/worklog/mcp_bench_compare_fail_YYYY-MM-DD.jsonl` へ記録（ベストエフォート）
 - `read_perf_log(n=10, preset_filter=null, max_output_chars=6000)`
   - JSONL の末尾読み取り
 - `read_inference_logs(n=20, preset_filter=null, max_output_chars=6000)`
