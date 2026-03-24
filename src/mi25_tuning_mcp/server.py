@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -100,6 +101,24 @@ PRESET_PARAMS: dict[str, dict[str, Any]] = {
         "num_ctx": 2048,
         "num_batch": 64,
     },
+    "gfx900_anchor_baseline": {
+        "max_tokens": 128,
+        "num_ctx": 8192,
+        "num_batch": 512,
+    },
+    "gfx900_anchor_side1024": {
+        "max_tokens": 128,
+        "num_ctx": 8192,
+        "num_batch": 1024,
+    },
+}
+
+BENCH_MODE_ALLOWLIST = {
+    "preset-sweep",
+    "thread-sweep",
+    "keepalive-sweep",
+    "predict-sweep",
+    "all",
 }
 
 # Candidate rocm-smi commands for compatibility across versions.
@@ -234,6 +253,50 @@ def _safe_path(base: Path, rel: str) -> Path | None:
         return resolved
     except Exception:
         return None
+
+
+def _safe_path_any(path: str, bases: list[Path]) -> Path | None:
+    p = Path(path)
+    candidates: list[Path] = []
+    if p.is_absolute():
+        candidates.append(p.resolve())
+    else:
+        candidates.extend((base / p).resolve() for base in bases)
+
+    for resolved in candidates:
+        for base in bases:
+            try:
+                resolved.relative_to(base.resolve())
+                return resolved
+            except Exception:
+                continue
+    return None
+
+
+def _client_binary_cmd() -> list[str]:
+    binary_release = CLIENT_ROOT / "target" / "release" / "multi_llm_client"
+    binary_debug = CLIENT_ROOT / "target" / "debug" / "multi_llm_client"
+    if binary_release.exists():
+        return [str(binary_release)]
+    if binary_debug.exists():
+        return [str(binary_debug)]
+    return [_cargo_bin(), "run", "--"]
+
+
+def _extract_bench_line_path(text: str, marker: str) -> str | None:
+    pattern = re.compile(rf"{re.escape(marker)}(?P<path>.+)$", flags=re.MULTILINE)
+    m = pattern.search(text)
+    if not m:
+        return None
+    return m.group("path").strip()
+
+
+def _read_head(path: Path, max_lines: int = 6) -> str:
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        return "\n".join(lines[:max_lines])
+    except Exception:
+        return ""
 
 
 def _run_cmd(
@@ -562,14 +625,7 @@ def run_inference(
     if model:
         override_cfg["model_name"] = model
 
-    binary_release = CLIENT_ROOT / "target" / "release" / "multi_llm_client"
-    binary_debug = CLIENT_ROOT / "target" / "debug" / "multi_llm_client"
-    if binary_release.exists():
-        cmd = [str(binary_release)]
-    elif binary_debug.exists():
-        cmd = [str(binary_debug)]
-    else:
-        cmd = [_cargo_bin(), "run", "--"]
+    cmd = _client_binary_cmd()
 
     stdin_input = f"{prompt}\n/bye\n"
     restore_ok = False
@@ -635,6 +691,257 @@ def run_inference(
         if not restore_ok and restore_error:
             # Best effort emergency signal in stderr for operators.
             print(f"[WARN] failed to restore config from {bak_path}: {restore_error}")
+
+
+# ---------------------------------------------------------------------------
+# Tools: benchmark execution
+# ---------------------------------------------------------------------------
+
+
+@audited_tool()
+def run_client_bench(
+    mode: str,
+    preset: str | None = None,
+    prompt: str | None = None,
+    repeat: int = 1,
+    threads_csv: str | None = None,
+    keep_alive_values_csv: str | None = None,
+    predict_values_csv: str | None = None,
+    out_path: str | None = None,
+    timeout_secs: int = 300,
+    max_output_chars: int = 6000,
+) -> dict[str, Any]:
+    """Run multi_llm-client built-in benchmark (`--bench`) and return artifact paths."""
+    if not CLIENT_ROOT.exists():
+        return _err(f"client_root not found: {CLIENT_ROOT}", code="not_found")
+    if timeout_secs <= 0:
+        return _err("timeout_secs must be > 0", code="invalid_argument")
+    if max_output_chars <= 0:
+        return _err("max_output_chars must be > 0", code="invalid_argument")
+    if repeat <= 0:
+        return _err("repeat must be > 0", code="invalid_argument")
+
+    mode_norm = mode.strip().lower()
+    if mode_norm not in BENCH_MODE_ALLOWLIST:
+        return _err(
+            f"invalid bench mode: {mode}",
+            code="invalid_argument",
+            structured={"allowed_modes": sorted(BENCH_MODE_ALLOWLIST)},
+        )
+
+    if preset is not None and preset not in PRESET_PARAMS:
+        return _err(
+            f"unknown preset: {preset}",
+            code="invalid_preset",
+            structured={"known_presets": sorted(PRESET_PARAMS.keys())},
+        )
+
+    resolved_out: Path | None = None
+    if out_path:
+        resolved_out = _safe_path_any(out_path, [CLIENT_ROOT, PROJECT_ROOT])
+        if resolved_out is None:
+            return _err(
+                f"invalid out_path (must be under {CLIENT_ROOT} or {PROJECT_ROOT}): {out_path}",
+                code="invalid_path",
+                structured={"out_path": out_path},
+            )
+
+    cmd = _client_binary_cmd() + ["--bench", mode_norm, "--repeat", str(repeat)]
+    if preset:
+        cmd.extend(["--preset", preset])
+    if prompt:
+        cmd.extend(["--prompt", prompt])
+    if threads_csv:
+        cmd.extend(["--threads", threads_csv])
+    if keep_alive_values_csv:
+        cmd.extend(["--keep-alive-values", keep_alive_values_csv])
+    if predict_values_csv:
+        cmd.extend(["--predict-values", predict_values_csv])
+    if resolved_out:
+        cmd.extend(["--out", str(resolved_out)])
+
+    try:
+        rc, out, err, elapsed_ms = _run_cmd(cmd, cwd=CLIENT_ROOT, timeout_secs=timeout_secs)
+    except subprocess.TimeoutExpired:
+        return _err(
+            f"run_client_bench timed out after {timeout_secs}s",
+            code="timeout",
+            structured={"timeout_secs": timeout_secs, "command": cmd},
+        )
+    except FileNotFoundError as e:
+        return _err(f"failed to launch command: {e}", code="exec_not_found")
+    except Exception as e:
+        return _err(f"run_client_bench failed: {e}", code="runtime_error")
+
+    merged = f"{out}\n{err}"
+    reported_out: str | None = None
+    for line in merged.splitlines():
+        if line.startswith("[bench] mode=") and " out=" in line:
+            reported_out = line.split(" out=", 1)[1].strip()
+            break
+    reported_phase = _extract_bench_line_path(merged, "[bench] phase_summary=")
+
+    bench_out_path = resolved_out
+    if bench_out_path is None and reported_out:
+        bench_out_path = _safe_path_any(reported_out, [CLIENT_ROOT, PROJECT_ROOT])
+
+    phase_summary_path: Path | None = None
+    if reported_phase:
+        phase_summary_path = _safe_path_any(reported_phase, [CLIENT_ROOT, PROJECT_ROOT])
+    elif bench_out_path is not None:
+        phase_summary_path = bench_out_path.with_name(f"{bench_out_path.stem}_phase_summary.tsv")
+
+    bench_out_exists = bool(bench_out_path and bench_out_path.exists())
+    phase_summary_exists = bool(phase_summary_path and phase_summary_path.exists())
+
+    marker_failed = "[bench-error]" in merged
+    status = "ok"
+    if rc != 0 or marker_failed or not bench_out_exists:
+        status = "failed"
+
+    payload = {
+        "status": status,
+        "returncode": rc,
+        "elapsed_ms": elapsed_ms,
+        "mode": mode_norm,
+        "preset": preset,
+        "repeat": repeat,
+        "command": cmd,
+        "bench_out_path": str(bench_out_path) if bench_out_path else None,
+        "bench_out_exists": bench_out_exists,
+        "phase_summary_path": str(phase_summary_path) if phase_summary_path else None,
+        "phase_summary_exists": phase_summary_exists,
+        "stdout": _truncate_text(out, max_output_chars),
+        "stderr": _truncate_text(err, 1200) if err else "",
+    }
+
+    if status != "ok":
+        return _err(
+            "run_client_bench failed",
+            code="bench_failed",
+            structured=payload,
+        )
+
+    return _ok("run_client_bench completed", payload)
+
+
+@audited_tool()
+def run_client_bench_compare(
+    baseline_phase_summary: str,
+    side_phase_summary: str,
+    compare_out: str | None = None,
+    timeout_secs: int = 180,
+    max_output_chars: int = 6000,
+) -> dict[str, Any]:
+    """Run `--bench-compare` on two phase summary TSV files."""
+    if not CLIENT_ROOT.exists():
+        return _err(f"client_root not found: {CLIENT_ROOT}", code="not_found")
+    if timeout_secs <= 0:
+        return _err("timeout_secs must be > 0", code="invalid_argument")
+    if max_output_chars <= 0:
+        return _err("max_output_chars must be > 0", code="invalid_argument")
+
+    baseline_path = _safe_path_any(baseline_phase_summary, [CLIENT_ROOT, PROJECT_ROOT])
+    if baseline_path is None:
+        return _err(
+            "invalid baseline_phase_summary path",
+            code="invalid_path",
+            structured={"baseline_phase_summary": baseline_phase_summary},
+        )
+    if not baseline_path.exists():
+        return _err(
+            f"baseline phase summary not found: {baseline_path}",
+            code="not_found",
+            structured={"baseline_phase_summary": str(baseline_path)},
+        )
+
+    side_path = _safe_path_any(side_phase_summary, [CLIENT_ROOT, PROJECT_ROOT])
+    if side_path is None:
+        return _err(
+            "invalid side_phase_summary path",
+            code="invalid_path",
+            structured={"side_phase_summary": side_phase_summary},
+        )
+    if not side_path.exists():
+        return _err(
+            f"side phase summary not found: {side_path}",
+            code="not_found",
+            structured={"side_phase_summary": str(side_path)},
+        )
+
+    resolved_compare_out: Path | None = None
+    if compare_out:
+        resolved_compare_out = _safe_path_any(compare_out, [CLIENT_ROOT, PROJECT_ROOT])
+        if resolved_compare_out is None:
+            return _err(
+                "invalid compare_out path",
+                code="invalid_path",
+                structured={"compare_out": compare_out},
+            )
+
+    cmd = _client_binary_cmd() + [
+        "--bench-compare",
+        str(baseline_path),
+        "--compare-side",
+        str(side_path),
+    ]
+    if resolved_compare_out:
+        cmd.extend(["--compare-out", str(resolved_compare_out)])
+
+    try:
+        rc, out, err, elapsed_ms = _run_cmd(cmd, cwd=CLIENT_ROOT, timeout_secs=timeout_secs)
+    except subprocess.TimeoutExpired:
+        return _err(
+            f"run_client_bench_compare timed out after {timeout_secs}s",
+            code="timeout",
+            structured={"timeout_secs": timeout_secs, "command": cmd},
+        )
+    except FileNotFoundError as e:
+        return _err(f"failed to launch command: {e}", code="exec_not_found")
+    except Exception as e:
+        return _err(f"run_client_bench_compare failed: {e}", code="runtime_error")
+
+    merged = f"{out}\n{err}"
+    reported_compare = _extract_bench_line_path(merged, "[bench-compare] out=")
+
+    compare_path = resolved_compare_out
+    if compare_path is None and reported_compare:
+        compare_path = _safe_path_any(reported_compare, [CLIENT_ROOT, PROJECT_ROOT])
+    if compare_path is None:
+        compare_path = baseline_path.with_name(
+            f"{baseline_path.stem}_vs_{side_path.stem}.tsv"
+        )
+
+    compare_exists = compare_path.exists()
+    compare_preview = _read_head(compare_path) if compare_exists else ""
+
+    marker_failed = "[bench-compare-error]" in merged
+    status = "ok"
+    if rc != 0 or marker_failed or not compare_exists:
+        status = "failed"
+
+    payload = {
+        "status": status,
+        "returncode": rc,
+        "elapsed_ms": elapsed_ms,
+        "command": cmd,
+        "baseline_phase_summary": str(baseline_path),
+        "side_phase_summary": str(side_path),
+        "compare_out": str(compare_path),
+        "compare_out_exists": compare_exists,
+        "compare_preview": _truncate_text(compare_preview, 1200) if compare_preview else "",
+        "stdout": _truncate_text(out, max_output_chars),
+        "stderr": _truncate_text(err, 1200) if err else "",
+    }
+
+    if status != "ok":
+        return _err(
+            "run_client_bench_compare failed",
+            code="bench_compare_failed",
+            structured=payload,
+        )
+
+    return _ok("run_client_bench_compare completed", payload)
 
 
 # ---------------------------------------------------------------------------

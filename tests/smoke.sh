@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SERVER_PY="$ROOT_DIR/src/mi25_tuning_mcp/server.py"
 
+if [[ -z "${MI25_MCP_AUDIT_LOG:-}" ]]; then
+  TMP_AUDIT_LOG="$(mktemp -t mi25-mcp-smoke-audit.XXXXXX.jsonl)"
+  export MI25_MCP_AUDIT_LOG="$TMP_AUDIT_LOG"
+  trap 'rm -f "$TMP_AUDIT_LOG"' EXIT
+fi
+
 echo "[smoke] python compile check"
 python3 -m py_compile "$SERVER_PY"
 
@@ -37,6 +43,14 @@ checks = [
     ("list_dir", lambda: server.list_dir(path="MI25-tuning-MCP", max_entries=5)),
     ("read_text", lambda: server.read_text(path="MI25-tuning-MCP/README.md", max_chars=200)),
     ("run_client_check", lambda: server.run_client_check(timeout_secs=5, max_output_chars=400)),
+    ("run_client_bench invalid", lambda: server.run_client_bench(mode="invalid-mode")),
+    (
+        "run_client_bench_compare invalid",
+        lambda: server.run_client_bench_compare(
+            baseline_phase_summary="worklog/does-not-exist-baseline.tsv",
+            side_phase_summary="worklog/does-not-exist-side.tsv",
+        ),
+    ),
 ]
 
 for name, fn in checks:
@@ -64,6 +78,13 @@ if [[ "${MI25_RUN_LLM_INTEGRATION:-0}" == "1" ]]; then
   PYTHONPATH="$ROOT_DIR/src" python3 "$ROOT_DIR/tests/llm_bridge_integration_test.py"
 else
   echo "[smoke] skip llm bridge integration test (set MI25_RUN_LLM_INTEGRATION=1 to enable)"
+fi
+
+if [[ "${MI25_RUN_BENCH_INTEGRATION:-0}" == "1" ]]; then
+  echo "[smoke] bench flow integration test"
+  PYTHONPATH="$ROOT_DIR/src" python3 "$ROOT_DIR/tests/bench_flow_integration_test.py"
+else
+  echo "[smoke] skip bench flow integration test (set MI25_RUN_BENCH_INTEGRATION=1 to enable)"
 fi
 
 echo "[smoke] done"

@@ -58,6 +58,8 @@ async def _run() -> None:
                 "get_config",
                 "update_config",
                 "run_inference",
+                "run_client_bench",
+                "run_client_bench_compare",
                 "read_perf_log",
                 "summarize_perf_log",
             }
@@ -101,6 +103,35 @@ async def _run() -> None:
             if err.get("code") != "disabled_by_policy":
                 raise AssertionError(f"expected disabled_by_policy, got: {err}")
             print("[protocol] tools/call set_config_raw policy guard: ok")
+
+            bench_invalid = await session.call_tool(
+                "run_client_bench",
+                {"mode": "__invalid_mode__"},
+            )
+            bench_invalid_payload = _unwrap_tool_payload(bench_invalid)
+            _assert_inner_shape("run_client_bench invalid", bench_invalid_payload)
+            if not bench_invalid_payload.get("isError"):
+                raise AssertionError("run_client_bench invalid must be isError=true")
+            bench_err = bench_invalid_payload.get("structuredContent", {}).get("error", {})
+            if bench_err.get("code") != "invalid_argument":
+                raise AssertionError(f"unexpected bench error code: {bench_err}")
+            print("[protocol] tools/call run_client_bench invalid: ok")
+
+            compare_invalid = await session.call_tool(
+                "run_client_bench_compare",
+                {
+                    "baseline_phase_summary": "worklog/no-baseline.tsv",
+                    "side_phase_summary": "worklog/no-side.tsv",
+                },
+            )
+            compare_invalid_payload = _unwrap_tool_payload(compare_invalid)
+            _assert_inner_shape("run_client_bench_compare invalid", compare_invalid_payload)
+            if not compare_invalid_payload.get("isError"):
+                raise AssertionError("run_client_bench_compare invalid must be isError=true")
+            compare_err = compare_invalid_payload.get("structuredContent", {}).get("error", {})
+            if compare_err.get("code") not in {"not_found", "invalid_path"}:
+                raise AssertionError(f"unexpected compare error code: {compare_err}")
+            print("[protocol] tools/call run_client_bench_compare invalid: ok")
 
 
 def main() -> int:

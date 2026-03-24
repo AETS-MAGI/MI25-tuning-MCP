@@ -44,6 +44,8 @@ mi25-tuning-mcp
 | `get_config` | `config.json` の読み取り |
 | `update_config` | allowlist キーを部分マージで更新（`.bak` 自動作成） |
 | `run_inference` | Rust クライアントでワンショット推論を実行 |
+| `run_client_bench` | Rust クライアントの `--bench` を実行し、`phase_summary` 生成まで返却 |
+| `run_client_bench_compare` | 2つの `phase_summary.tsv` を比較して差分 TSV を生成 |
 | `read_perf_log` | JSONL ログの末尾 N 件を取得 |
 | `read_inference_logs` | `read_perf_log` の別名（広域履歴参照用） |
 | `summarize_perf_log` | TTFT / tok/s / エラー率などを集計 |
@@ -72,6 +74,8 @@ mi25-tuning-mcp
 - **`write_file`**: `Agents-note/` 配下のみ書き込み可
 - **`read_file` / `read_text` / `list_dir`**: プロジェクトルート配下のみ参照可
 - **`run_inference`**: タイムアウト必須、実行後に `config.json` を必ず復元
+- **`run_client_bench`**: `mode` allowlist を強制し、`--bench` 固定テンプレートのみ実行
+- **`run_client_bench_compare`**: 入出力 TSV パスを `CLIENT_ROOT` / `PROJECT_ROOT` 配下に限定
 - **`set_config_raw`**: 既定無効。明示的な環境変数が必要
 - **subprocess**: 固定コマンドテンプレートのみ使用（free-form shell 禁止）
 - **全ツール**: 監査ログ JSONL に tool call を記録
@@ -140,6 +144,9 @@ source .venv/bin/activate
 
 # LLM 統合テストも実行する場合
 MI25_RUN_LLM_INTEGRATION=1 ./tests/smoke.sh
+
+# bench -> phase_summary -> compare の MCP 統合テストも実行する場合
+MI25_RUN_BENCH_INTEGRATION=1 ./tests/smoke.sh
 ```
 
 `smoke.sh` が実行するテスト:
@@ -148,6 +155,7 @@ MI25_RUN_LLM_INTEGRATION=1 ./tests/smoke.sh
 2. `tests/unit_direct_test.py` — MCP 単体 / 失敗系 / サンドボックス統合
 3. `tests/protocol_tools_test.py` — stdio MCP プロトコル（`tools/list` / `tools/call`）
 4. `tests/llm_bridge_integration_test.py` — ブリッジ経由 LLM 統合（`MI25_RUN_LLM_INTEGRATION=1` で有効）
+5. `tests/bench_flow_integration_test.py` — MCP 経由 `bench -> phase_summary -> compare`（`MI25_RUN_BENCH_INTEGRATION=1` で有効）
 
 ---
 

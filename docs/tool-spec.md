@@ -1,6 +1,6 @@
 # MI25-tuning-MCP Tool Spec
 
-最終更新: 2026-03-22  
+最終更新: 2026-03-24  
 正本: `../SPEC.md`, `../../Agents-note/Rust製クライアント/MCP対応案/agreement.md`
 
 ## 1. 共通仕様
@@ -67,6 +67,13 @@ allowlist keys:
   - 一時 `config.json` 差し替え -> 実行 -> 復元
   - `preset=null` のときは `config.json` の現在値を利用
   - `stdout`, `stderr`, `latest_log_entry`, `log_path` を返す
+- `run_client_bench(mode, preset=null, prompt=null, repeat=1, threads_csv=null, keep_alive_values_csv=null, predict_values_csv=null, out_path=null, timeout_secs=300, max_output_chars=6000)`
+  - `multi_llm-client --bench ...` を固定テンプレートで実行
+  - `bench_out_path` と `phase_summary_path`（`*_phase_summary.tsv`）を返す
+  - `mode` は `preset-sweep|thread-sweep|keepalive-sweep|predict-sweep|all`
+- `run_client_bench_compare(baseline_phase_summary, side_phase_summary, compare_out=null, timeout_secs=180, max_output_chars=6000)`
+  - `multi_llm-client --bench-compare ... --compare-side ...` を実行
+  - 比較 TSV パスと先頭プレビューを返す
 - `read_perf_log(n=10, preset_filter=null, max_output_chars=6000)`
   - JSONL の末尾読み取り
 - `read_inference_logs(n=20, preset_filter=null, max_output_chars=6000)`
@@ -91,6 +98,7 @@ allowlist keys:
 - `invalid_argument`
 - `invalid_path`
 - `allowlist_violation`
+- `invalid_preset`
 - `not_found`
 - `not_a_file`
 - `not_a_directory`
@@ -99,6 +107,8 @@ allowlist keys:
 - `backup_failed`
 - `exec_not_found`
 - `inference_failed`
+- `bench_failed`
+- `bench_compare_failed`
 - `check_failed`
 - `timeout`
 - `disabled_by_policy`

@@ -179,6 +179,19 @@ def main() -> int:
         _run_case("list_dir", lambda: server.list_dir(path="MI25-tuning-MCP", max_entries=5))
         _run_case("read_text", lambda: server.read_text(path="MI25-tuning-MCP/README.md", max_chars=200))
         _run_case("run_client_check", lambda: server.run_client_check(timeout_secs=10, max_output_chars=400))
+        _run_case(
+            "run_client_bench_invalid_mode",
+            lambda: server.run_client_bench(mode="__invalid_mode__"),
+            expected_error_code="invalid_argument",
+        )
+        _run_case(
+            "run_client_bench_compare_not_found",
+            lambda: server.run_client_bench_compare(
+                baseline_phase_summary="worklog/no-baseline.tsv",
+                side_phase_summary="worklog/no-side.tsv",
+            ),
+            expected_error_code="not_found",
+        )
 
         # Failure-path checks
         _run_case(
